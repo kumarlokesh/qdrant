@@ -19,7 +19,7 @@ use segment::common::anonymize::Anonymize;
 use segment::common::operation_error::OperationError;
 use segment::data_types::groups::GroupId;
 use segment::data_types::vectors::{
-    DenseVector, QueryVector, VectorRef, VectorStruct, DEFAULT_VECTOR_NAME,
+    DenseVector, QueryVector, VectorElementType, VectorRef, VectorStruct, DEFAULT_VECTOR_NAME,
 };
 use segment::json_path::{JsonPath, JsonPathInterface};
 use segment::types::{
@@ -487,7 +487,7 @@ pub struct PointRequestInternal {
 pub enum RecommendExample {
     PointId(PointIdType),
     Dense(DenseVector),
-    Sparse(SparseVector),
+    Sparse(SparseVector<VectorElementType>),
 }
 
 impl RecommendExample {

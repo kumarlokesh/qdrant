@@ -1,4 +1,6 @@
-use segment::data_types::vectors::{DenseVector, Named, NamedQuery, NamedVectorStruct, Vector};
+use segment::data_types::vectors::{
+    DenseVector, Named, NamedQuery, NamedVectorStruct, Vector, VectorElementType,
+};
 use segment::vector_storage::query::{ContextQuery, DiscoveryQuery, RecoQuery};
 use sparse::common::sparse_vector::SparseVector;
 
@@ -22,7 +24,7 @@ impl QueryEnum {
         }
     }
 
-    pub fn iterate_sparse(&self, mut f: impl FnMut(&str, &SparseVector)) {
+    pub fn iterate_sparse(&self, mut f: impl FnMut(&str, &SparseVector<VectorElementType>)) {
         match self {
             QueryEnum::Nearest(vector) => match vector {
                 NamedVectorStruct::Sparse(named_sparse_vector) => {

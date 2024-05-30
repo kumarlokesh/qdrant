@@ -24,7 +24,7 @@ use super::sparse_index_config::SparseIndexType;
 use crate::common::operation_error::{check_process_stopped, OperationError, OperationResult};
 use crate::common::operation_time_statistics::ScopeDurationMeasurer;
 use crate::data_types::query_context::VectorQueryContext;
-use crate::data_types::vectors::{QueryVector, Vector, VectorRef};
+use crate::data_types::vectors::{QueryVector, Vector, VectorElementType, VectorRef};
 use crate::id_tracker::IdTrackerSS;
 use crate::index::field_index::CardinalityEstimation;
 use crate::index::query_estimator::adjust_to_available_vectors;
@@ -219,7 +219,8 @@ impl<TInvertedIndex: InvertedIndex> SparseVectorIndex<TInvertedIndex> {
                     log::debug!("Sparse vector with id {id} is not found, external_id: {point_id:?}, version: {point_version:?}")
                 }
                 Some(vector) => {
-                    let vector: &SparseVector = vector.as_vec_ref().try_into()?;
+                    let vector: &SparseVector<VectorElementType> =
+                        vector.as_vec_ref().try_into()?;
                     // do not index empty vectors
                     if vector.is_empty() {
                         continue;
@@ -240,7 +241,7 @@ impl<TInvertedIndex: InvertedIndex> SparseVectorIndex<TInvertedIndex> {
     /// Returns the maximum number of results that can be returned by the index for a given sparse vector
     /// Warning: the cost of this function grows with the number of dimensions in the query vector
     #[cfg(feature = "testing")]
-    pub fn max_result_count(&self, query_vector: &SparseVector) -> usize {
+    pub fn max_result_count(&self, query_vector: &SparseVector<VectorElementType>) -> usize {
         use sparse::index::posting_list_common::PostingListIter as _;
 
         let mut unique_record_ids = std::collections::HashSet::new();
@@ -311,7 +312,7 @@ impl<TInvertedIndex: InvertedIndex> SparseVectorIndex<TInvertedIndex> {
 
     pub fn search_plain(
         &self,
-        sparse_vector: &SparseVector,
+        sparse_vector: &SparseVector<VectorElementType>,
         filter: &Filter,
         top: usize,
         prefiltered_points: &mut Option<Vec<PointOffsetType>>,
@@ -355,7 +356,7 @@ impl<TInvertedIndex: InvertedIndex> SparseVectorIndex<TInvertedIndex> {
     // search using sparse vector inverted index
     fn search_sparse(
         &self,
-        sparse_vector: &SparseVector,
+        sparse_vector: &SparseVector<VectorElementType>,
         filter: Option<&Filter>,
         top: usize,
         vector_query_context: &VectorQueryContext,
@@ -398,7 +399,7 @@ impl<TInvertedIndex: InvertedIndex> SparseVectorIndex<TInvertedIndex> {
 
     fn search_nearest_query(
         &self,
-        vector: &SparseVector,
+        vector: &SparseVector<VectorElementType>,
         filter: Option<&Filter>,
         top: usize,
         prefiltered_points: &mut Option<Vec<PointOffsetType>>,
@@ -591,7 +592,7 @@ impl<TInvertedIndex: InvertedIndex> VectorIndex for SparseVectorIndex<TInvertedI
             ));
         }
 
-        let vector: &SparseVector = vector.try_into()?;
+        let vector: &SparseVector<VectorElementType> = vector.try_into()?;
         // do not upsert empty vectors into the index
         if !vector.is_empty() {
             self.indices_tracker.register_indices(vector);

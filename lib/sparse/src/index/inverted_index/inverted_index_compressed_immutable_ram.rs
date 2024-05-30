@@ -71,7 +71,7 @@ impl InvertedIndex for InvertedIndexImmutableRam {
         InvertedIndexMmap::files(path)
     }
 
-    fn upsert(&mut self, _id: PointOffsetType, _vector: RemappedSparseVector) {
+    fn upsert(&mut self, _id: PointOffsetType, _vector: RemappedSparseVector<DimWeight>) {
         panic!("Cannot upsert into a read-only RAM inverted index")
     }
 

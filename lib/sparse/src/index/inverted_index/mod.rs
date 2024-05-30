@@ -47,7 +47,7 @@ pub trait InvertedIndex: Sized {
     fn files(path: &Path) -> Vec<PathBuf>;
 
     /// Upsert a vector into the inverted index.
-    fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector);
+    fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector<DimWeight>);
 
     /// Create inverted index from ram index
     fn from_ram_index<P: AsRef<Path>>(

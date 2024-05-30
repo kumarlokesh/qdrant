@@ -13,6 +13,7 @@ use sparse::index::inverted_index::InvertedIndex;
 
 use crate::common::operation_error::OperationResult;
 use crate::common::rocksdb_wrapper::{open_db, DB_VECTOR_CF};
+use crate::data_types::vectors::VectorElementType;
 use crate::fixtures::payload_context_fixture::FixtureIdTracker;
 use crate::index::hnsw_index::num_rayon_threads;
 use crate::index::sparse_index::sparse_index_config::{SparseIndexConfig, SparseIndexType};
@@ -100,7 +101,7 @@ pub fn fixture_sparse_index_ram<R: Rng + ?Sized>(
 
 /// Prepares a sparse vector index with a given iterator of sparse vectors
 pub fn fixture_sparse_index_ram_from_iter<P: FnMut()>(
-    vectors: impl ExactSizeIterator<Item = SparseVector>,
+    vectors: impl ExactSizeIterator<Item = SparseVector<VectorElementType>>,
     full_scan_threshold: usize,
     data_dir: &Path,
     stopped: &AtomicBool,

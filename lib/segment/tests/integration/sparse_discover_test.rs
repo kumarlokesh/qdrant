@@ -28,7 +28,7 @@ use tempfile::Builder;
 const MAX_EXAMPLE_PAIRS: usize = 3;
 const SPARSE_VECTOR_NAME: &str = "sparse_test";
 
-fn convert_to_sparse_vector(vector: &[VectorElementType]) -> SparseVector {
+fn convert_to_sparse_vector(vector: &[VectorElementType]) -> SparseVector<VectorElementType> {
     let mut sparse_vector = SparseVector::default();
     for (idx, value) in vector.iter().enumerate() {
         sparse_vector.indices.push(idx as u32);

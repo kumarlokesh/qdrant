@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use segment::data_types::vectors::{NamedSparseVector, NamedVectorStruct, Vector, VectorStruct};
+use segment::data_types::vectors::{
+    NamedSparseVector, NamedVectorStruct, Vector, VectorElementType, VectorStruct,
+};
 use sparse::common::sparse_vector::SparseVector;
 use validator::Validate;
 
@@ -11,7 +13,7 @@ use crate::operations::types::{
 };
 use crate::operations::vector_ops::PointVectors;
 
-fn wrong_sparse_vector() -> SparseVector {
+fn wrong_sparse_vector() -> SparseVector<VectorElementType> {
     SparseVector {
         indices: vec![1, 2],
         values: vec![0.0, 1.0, 2.0],

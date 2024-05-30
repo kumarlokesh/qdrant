@@ -1,6 +1,7 @@
 use common::types::{PointOffsetType, ScoreType};
 use sparse::common::sparse_vector::SparseVector;
 
+use crate::data_types::vectors::VectorElementType;
 use crate::vector_storage::query::{Query, TransformInto};
 use crate::vector_storage::query_scorer::QueryScorer;
 use crate::vector_storage::SparseVectorStorage;
@@ -8,7 +9,7 @@ use crate::vector_storage::SparseVectorStorage;
 pub struct SparseCustomQueryScorer<
     'a,
     TVectorStorage: SparseVectorStorage,
-    TQuery: Query<SparseVector>,
+    TQuery: Query<SparseVector<VectorElementType>>,
 > {
     vector_storage: &'a TVectorStorage,
     query: TQuery,
@@ -17,7 +18,8 @@ pub struct SparseCustomQueryScorer<
 impl<
         'a,
         TVectorStorage: SparseVectorStorage,
-        TQuery: Query<SparseVector> + TransformInto<TQuery, SparseVector, SparseVector>,
+        TQuery: Query<SparseVector<VectorElementType>>
+            + TransformInto<TQuery, SparseVector<VectorElementType>, SparseVector<VectorElementType>>,
     > SparseCustomQueryScorer<'a, TVectorStorage, TQuery>
 {
     pub fn new(query: TQuery, vector_storage: &'a TVectorStorage) -> Self {
@@ -34,7 +36,8 @@ impl<
     }
 }
 
-impl<'a, TVectorStorage: SparseVectorStorage, TQuery: Query<SparseVector>> QueryScorer<SparseVector>
+impl<'a, TVectorStorage: SparseVectorStorage, TQuery: Query<SparseVector<VectorElementType>>>
+    QueryScorer<SparseVector<VectorElementType>>
     for SparseCustomQueryScorer<'a, TVectorStorage, TQuery>
 {
     #[inline]
@@ -47,7 +50,7 @@ impl<'a, TVectorStorage: SparseVectorStorage, TQuery: Query<SparseVector>> Query
             .score_by(|example| stored.score(example).unwrap_or(0.0))
     }
 
-    fn score(&self, v: &SparseVector) -> ScoreType {
+    fn score(&self, v: &SparseVector<VectorElementType>) -> ScoreType {
         self.query
             .score_by(|example| example.score(v).unwrap_or(0.0))
     }

@@ -4,6 +4,7 @@ use common::types::ScoreType;
 use schemars::JsonSchema;
 use segment::common::utils::MaybeOneOrMany;
 use segment::data_types::order_by::OrderBy;
+use segment::data_types::vectors::VectorElementType;
 use segment::json_path::JsonPath;
 use segment::types::{Filter, SearchParams, ShardKey, WithPayloadInterface, WithVector};
 use serde::{Deserialize, Serialize};
@@ -19,7 +20,7 @@ pub type MultiDenseVector = Vec<DenseVector>;
 #[serde(untagged, rename_all = "snake_case")]
 pub enum Vector {
     Dense(DenseVector),
-    Sparse(sparse::common::sparse_vector::SparseVector),
+    Sparse(sparse::common::sparse_vector::SparseVector<VectorElementType>),
     MultiDense(MultiDenseVector),
 }
 
@@ -166,7 +167,7 @@ pub enum Fusion {
 pub enum VectorInput {
     Id(segment::types::PointIdType),
     DenseVector(DenseVector),
-    SparseVector(SparseVector),
+    SparseVector(SparseVector<VectorElementType>),
     MultiDenseVector(MultiDenseVector),
 }
 

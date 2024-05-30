@@ -12,6 +12,7 @@ use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use itertools::Itertools as _;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use segment::data_types::vectors::VectorElementType;
 use segment::fixtures::sparse_fixtures::fixture_sparse_index_ram_from_iter;
 use segment::index::hnsw_index::num_rayon_threads;
 use segment::index::sparse_index::sparse_index_config::{SparseIndexConfig, SparseIndexType};
@@ -60,8 +61,8 @@ fn sparse_vector_index_search_benchmark(c: &mut Criterion) {
 fn sparse_vector_index_search_benchmark_impl(
     c: &mut Criterion,
     group: &str,
-    vectors: impl ExactSizeIterator<Item = SparseVector>,
-    query_vectors: &[SparseVector],
+    vectors: impl ExactSizeIterator<Item = SparseVector<VectorElementType>>,
+    query_vectors: &[SparseVector<VectorElementType>],
 ) {
     let mut group = c.benchmark_group(format!("sparse_vector_index_search/{}", group));
     group.sample_size(10);

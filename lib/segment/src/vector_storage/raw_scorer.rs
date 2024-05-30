@@ -192,7 +192,8 @@ pub fn raw_sparse_scorer_impl<'a, TVectorStorage: SparseVectorStorage>(
             "Raw scorer must not be used for nearest queries",
         )),
         QueryVector::Recommend(reco_query) => {
-            let reco_query: RecoQuery<SparseVector> = reco_query.transform_into()?;
+            let reco_query: RecoQuery<SparseVector<VectorElementType>> =
+                reco_query.transform_into()?;
             raw_scorer_from_query_scorer(
                 SparseCustomQueryScorer::<_, _>::new(reco_query, vector_storage),
                 point_deleted,
@@ -201,7 +202,8 @@ pub fn raw_sparse_scorer_impl<'a, TVectorStorage: SparseVectorStorage>(
             )
         }
         QueryVector::Discovery(discovery_query) => {
-            let discovery_query: DiscoveryQuery<SparseVector> = discovery_query.transform_into()?;
+            let discovery_query: DiscoveryQuery<SparseVector<VectorElementType>> =
+                discovery_query.transform_into()?;
             raw_scorer_from_query_scorer(
                 SparseCustomQueryScorer::<_, _>::new(discovery_query, vector_storage),
                 point_deleted,
@@ -210,7 +212,8 @@ pub fn raw_sparse_scorer_impl<'a, TVectorStorage: SparseVectorStorage>(
             )
         }
         QueryVector::Context(context_query) => {
-            let context_query: ContextQuery<SparseVector> = context_query.transform_into()?;
+            let context_query: ContextQuery<SparseVector<VectorElementType>> =
+                context_query.transform_into()?;
             raw_scorer_from_query_scorer(
                 SparseCustomQueryScorer::<_, _>::new(context_query, vector_storage),
                 point_deleted,

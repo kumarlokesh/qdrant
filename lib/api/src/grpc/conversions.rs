@@ -7,6 +7,7 @@ use itertools::Itertools;
 use segment::data_types::integer_index::IntegerIndexType;
 use segment::data_types::text_index::TextIndexType;
 use segment::data_types::vectors as segment_vectors;
+use segment::data_types::vectors::VectorElementType;
 use segment::json_path::JsonPath;
 use segment::types::{default_quantization_ignore_value, DateTimePayloadType, FloatPayloadType};
 use segment::vector_storage::query as segment_query;
@@ -529,12 +530,15 @@ impl TryFrom<Vector> for segment_vectors::Vector {
         // sparse vector
         if let Some(indices) = vector.indices {
             return Ok(segment_vectors::Vector::Sparse(
-                sparse::common::sparse_vector::SparseVector::new(indices.data, vector.data)
-                    .map_err(|_| {
-                        Status::invalid_argument(
-                            "Sparse indices does not match sparse vector conditions",
-                        )
-                    })?,
+                sparse::common::sparse_vector::SparseVector::<VectorElementType>::new(
+                    indices.data,
+                    vector.data,
+                )
+                .map_err(|_| {
+                    Status::invalid_argument(
+                        "Sparse indices does not match sparse vector conditions",
+                    )
+                })?,
             ));
         }
 
@@ -1595,7 +1599,7 @@ pub fn into_named_vector_struct(
         Some(indices) => NamedVectorStruct::Sparse(NamedSparseVector {
             name: vector_name
                 .ok_or_else(|| Status::invalid_argument("Sparse vector must have a name"))?,
-            vector: SparseVector::new(indices.data, vector).map_err(|_| {
+            vector: SparseVector::<VectorElementType>::new(indices.data, vector).map_err(|_| {
                 Status::invalid_argument("Sparse indices does not match sparse vector conditions")
             })?,
         }),
@@ -1663,15 +1667,15 @@ impl From<segment_vectors::DenseVector> for DenseVector {
     }
 }
 
-impl From<sparse::common::sparse_vector::SparseVector> for SparseVector {
-    fn from(value: sparse::common::sparse_vector::SparseVector) -> Self {
+impl From<sparse::common::sparse_vector::SparseVector<VectorElementType>> for SparseVector {
+    fn from(value: sparse::common::sparse_vector::SparseVector<VectorElementType>) -> Self {
         let sparse::common::sparse_vector::SparseVector { indices, values } = value;
 
         Self { indices, values }
     }
 }
 
-impl From<SparseVector> for sparse::common::sparse_vector::SparseVector {
+impl From<SparseVector> for sparse::common::sparse_vector::SparseVector<VectorElementType> {
     fn from(value: SparseVector) -> Self {
         let SparseVector { indices, values } = value;
 

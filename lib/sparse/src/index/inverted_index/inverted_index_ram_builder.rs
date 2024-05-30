@@ -3,6 +3,7 @@ use std::cmp::max;
 use common::types::PointOffsetType;
 
 use crate::common::sparse_vector::RemappedSparseVector;
+use crate::common::types::DimWeight;
 use crate::index::inverted_index::inverted_index_ram::InvertedIndexRam;
 use crate::index::posting_list::PostingBuilder;
 
@@ -27,7 +28,7 @@ impl InvertedIndexBuilder {
     }
 
     /// Add a vector to the inverted index builder
-    pub fn add(&mut self, id: PointOffsetType, vector: RemappedSparseVector) {
+    pub fn add(&mut self, id: PointOffsetType, vector: RemappedSparseVector<DimWeight>) {
         for (dim_id, weight) in vector.indices.into_iter().zip(vector.values.into_iter()) {
             let dim_id = dim_id as usize;
             self.posting_builders.resize_with(
@@ -55,7 +56,7 @@ impl InvertedIndexBuilder {
 
     /// Creates an [InvertedIndexRam] from an iterator of (id, vector) pairs.
     pub fn build_from_iterator(
-        iter: impl Iterator<Item = (PointOffsetType, RemappedSparseVector)>,
+        iter: impl Iterator<Item = (PointOffsetType, RemappedSparseVector<DimWeight>)>,
     ) -> InvertedIndexRam {
         let mut builder = InvertedIndexBuilder::new();
         for (id, vector) in iter {

@@ -7,26 +7,26 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError, ValidationErrors};
 
-use crate::common::types::{DimId, DimOffset, DimWeight};
+use crate::common::types::{DimId, DimOffset, Weight};
 
 /// Sparse vector structure
 #[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct SparseVector {
+pub struct SparseVector<W> {
     /// Indices must be unique
     pub indices: Vec<DimId>,
     /// Values and indices must be the same length
-    pub values: Vec<DimWeight>,
+    pub values: Vec<W>,
 }
 
 /// Same as `SparseVector` but with `DimOffset` indices.
 /// Meaning that is uses internal segment-specific indices.
 #[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
-pub struct RemappedSparseVector {
+pub struct RemappedSparseVector<W> {
     /// indices must be unique
     pub indices: Vec<DimOffset>,
     /// values and indices must be the same length
-    pub values: Vec<DimWeight>,
+    pub values: Vec<W>,
 }
 
 /// Sort two arrays by the first array.
@@ -51,11 +51,11 @@ fn double_sort<T: Ord + Copy, V: Copy>(indices: &mut [T], values: &mut [V]) {
     }
 }
 
-fn score_vectors<T: Ord + Eq>(
+fn score_vectors<T: Ord + Eq, W: Weight>(
     self_indices: &[T],
-    self_values: &[DimWeight],
+    self_values: &[W],
     other_indices: &[T],
-    other_values: &[DimWeight],
+    other_values: &[W],
 ) -> Option<ScoreType> {
     let mut score = 0.0;
     // track whether there is any overlap
@@ -68,7 +68,7 @@ fn score_vectors<T: Ord + Eq>(
             std::cmp::Ordering::Greater => j += 1,
             std::cmp::Ordering::Equal => {
                 overlap = true;
-                score += self_values[i] * other_values[j];
+                score += Weight::score(self_values[i], other_values[j]);
                 i += 1;
                 j += 1;
             }
@@ -81,8 +81,8 @@ fn score_vectors<T: Ord + Eq>(
     }
 }
 
-impl RemappedSparseVector {
-    pub fn new(indices: Vec<DimId>, values: Vec<DimWeight>) -> Result<Self, ValidationErrors> {
+impl<W: Weight> RemappedSparseVector<W> {
+    pub fn new(indices: Vec<DimId>, values: Vec<W>) -> Result<Self, ValidationErrors> {
         let vector = Self { indices, values };
         vector.validate()?;
         Ok(vector)
@@ -101,15 +101,15 @@ impl RemappedSparseVector {
     /// Warning: Expects both vectors to be sorted by indices.
     ///
     /// Return None if the vectors do not overlap.
-    pub fn score(&self, other: &RemappedSparseVector) -> Option<ScoreType> {
+    pub fn score(&self, other: &Self) -> Option<ScoreType> {
         debug_assert!(self.is_sorted());
         debug_assert!(other.is_sorted());
         score_vectors(&self.indices, &self.values, &other.indices, &other.values)
     }
 }
 
-impl SparseVector {
-    pub fn new(indices: Vec<DimId>, values: Vec<DimWeight>) -> Result<Self, ValidationErrors> {
+impl<W: Weight> SparseVector<W> {
+    pub fn new(indices: Vec<DimId>, values: Vec<W>) -> Result<Self, ValidationErrors> {
         let vector = SparseVector { indices, values };
         vector.validate()?;
         Ok(vector)
@@ -136,7 +136,7 @@ impl SparseVector {
     /// Warning: Expects both vectors to be sorted by indices.
     ///
     /// Return None if the vectors do not overlap.
-    pub fn score(&self, other: &SparseVector) -> Option<ScoreType> {
+    pub fn score(&self, other: &Self) -> Option<ScoreType> {
         debug_assert!(self.is_sorted());
         debug_assert!(other.is_sorted());
         score_vectors(&self.indices, &self.values, &other.indices, &other.values)
@@ -144,13 +144,9 @@ impl SparseVector {
 
     /// Construct a new vector that is the result of performing all indices-wise operations.
     /// Automatically sort input vectors if necessary.
-    pub fn combine_aggregate(
-        &self,
-        other: &SparseVector,
-        op: impl Fn(DimWeight, DimWeight) -> DimWeight,
-    ) -> Self {
+    pub fn combine_aggregate(&self, other: &Self, op: impl Fn(W, W) -> W) -> Self {
         // Copy and sort `self` vector if not already sorted
-        let this: Cow<SparseVector> = if !self.is_sorted() {
+        let this: Cow<SparseVector<W>> = if !self.is_sorted() {
             let mut this = self.clone();
             this.sort_by_indices();
             Cow::Owned(this)
@@ -160,7 +156,7 @@ impl SparseVector {
         assert!(this.is_sorted());
 
         // Copy and sort `other` vector if not already sorted
-        let cow_other: Cow<SparseVector> = if !other.is_sorted() {
+        let cow_other: Cow<SparseVector<W>> = if !other.is_sorted() {
             let mut other = other.clone();
             other.sort_by_indices();
             Cow::Owned(other)
@@ -177,12 +173,12 @@ impl SparseVector {
             match this.indices[i].cmp(&other.indices[j]) {
                 std::cmp::Ordering::Less => {
                     result.indices.push(this.indices[i]);
-                    result.values.push(op(this.values[i], 0.0));
+                    result.values.push(op(this.values[i], Default::default()));
                     i += 1;
                 }
                 std::cmp::Ordering::Greater => {
                     result.indices.push(other.indices[j]);
-                    result.values.push(op(0.0, other.values[j]));
+                    result.values.push(op(Default::default(), other.values[j]));
                     j += 1;
                 }
                 std::cmp::Ordering::Equal => {
@@ -195,12 +191,12 @@ impl SparseVector {
         }
         while i < this.indices.len() {
             result.indices.push(this.indices[i]);
-            result.values.push(op(this.values[i], 0.0));
+            result.values.push(op(this.values[i], Default::default()));
             i += 1;
         }
         while j < other.indices.len() {
             result.indices.push(other.indices[j]);
-            result.values.push(op(0.0, other.values[j]));
+            result.values.push(op(Default::default(), other.values[j]));
             j += 1;
         }
         debug_assert!(result.is_sorted());
@@ -210,7 +206,7 @@ impl SparseVector {
 
     /// Create [RemappedSparseVector] from this vector in a naive way. Only suitable for testing.
     #[cfg(feature = "testing")]
-    pub fn into_remapped(self) -> RemappedSparseVector {
+    pub fn into_remapped(self) -> RemappedSparseVector<W> {
         RemappedSparseVector {
             indices: self.indices,
             values: self.values,
@@ -218,53 +214,53 @@ impl SparseVector {
     }
 }
 
-impl TryFrom<Vec<(u32, f32)>> for RemappedSparseVector {
+impl<W: Weight> TryFrom<Vec<(u32, W)>> for RemappedSparseVector<W> {
     type Error = ValidationErrors;
 
-    fn try_from(tuples: Vec<(u32, f32)>) -> Result<Self, Self::Error> {
+    fn try_from(tuples: Vec<(u32, W)>) -> Result<Self, Self::Error> {
         let (indices, values): (Vec<_>, Vec<_>) = tuples.into_iter().unzip();
         RemappedSparseVector::new(indices, values)
     }
 }
 
-impl TryFrom<Vec<(u32, f32)>> for SparseVector {
+impl<W: Weight> TryFrom<Vec<(u32, W)>> for SparseVector<W> {
     type Error = ValidationErrors;
 
-    fn try_from(tuples: Vec<(u32, f32)>) -> Result<Self, Self::Error> {
+    fn try_from(tuples: Vec<(u32, W)>) -> Result<Self, Self::Error> {
         let (indices, values): (Vec<_>, Vec<_>) = tuples.into_iter().unzip();
         SparseVector::new(indices, values)
     }
 }
 
 #[cfg(test)]
-impl<const N: usize> From<[(u32, f32); N]> for SparseVector {
-    fn from(value: [(u32, f32); N]) -> Self {
+impl<const N: usize, W: Weight> From<[(u32, W); N]> for SparseVector<W> {
+    fn from(value: [(u32, W); N]) -> Self {
         value.to_vec().try_into().unwrap()
     }
 }
 
 #[cfg(test)]
-impl<const N: usize> From<[(u32, f32); N]> for RemappedSparseVector {
-    fn from(value: [(u32, f32); N]) -> Self {
+impl<const N: usize, W: Weight> From<[(u32, W); N]> for RemappedSparseVector<W> {
+    fn from(value: [(u32, W); N]) -> Self {
         value.to_vec().try_into().unwrap()
     }
 }
 
-impl Validate for SparseVector {
+impl<W: Weight> Validate for SparseVector<W> {
     fn validate(&self) -> Result<(), ValidationErrors> {
         validate_sparse_vector_impl(&self.indices, &self.values)
     }
 }
 
-impl Validate for RemappedSparseVector {
+impl<W: Weight> Validate for RemappedSparseVector<W> {
     fn validate(&self) -> Result<(), ValidationErrors> {
         validate_sparse_vector_impl(&self.indices, &self.values)
     }
 }
 
-pub fn validate_sparse_vector_impl<T: Clone + Eq + Hash>(
+pub fn validate_sparse_vector_impl<T: Clone + Eq + Hash, W: Weight>(
     indices: &[T],
-    values: &[DimWeight],
+    values: &[W],
 ) -> Result<(), ValidationErrors> {
     let mut errors = ValidationErrors::default();
 
@@ -288,6 +284,7 @@ pub fn validate_sparse_vector_impl<T: Clone + Eq + Hash>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::common::types::DimWeight;
 
     #[test]
     fn test_score_aligned_same_size() {
@@ -326,7 +323,7 @@ mod tests {
 
     #[test]
     fn validation_test() {
-        let fully_empty = SparseVector::new(vec![], vec![]);
+        let fully_empty = SparseVector::<DimWeight>::new(vec![], vec![]);
         assert!(fully_empty.is_ok());
         assert!(fully_empty.unwrap().is_empty());
 
@@ -342,7 +339,8 @@ mod tests {
 
     #[test]
     fn sorting_test() {
-        let mut not_sorted = SparseVector::new(vec![1, 3, 2], vec![1.0, 2.0, 3.0]).unwrap();
+        let mut not_sorted =
+            SparseVector::<DimWeight>::new(vec![1, 3, 2], vec![1.0, 2.0, 3.0]).unwrap();
         assert!(!not_sorted.is_sorted());
         not_sorted.sort_by_indices();
         assert!(not_sorted.is_sorted());
@@ -351,8 +349,8 @@ mod tests {
     #[test]
     fn combine_aggregate_test() {
         // Test with missing index
-        let a = SparseVector::new(vec![1, 2, 3], vec![0.1, 0.2, 0.3]).unwrap();
-        let b = SparseVector::new(vec![2, 3, 4], vec![2.0, 3.0, 4.0]).unwrap();
+        let a = SparseVector::<DimWeight>::new(vec![1, 2, 3], vec![0.1, 0.2, 0.3]).unwrap();
+        let b = SparseVector::<DimWeight>::new(vec![2, 3, 4], vec![2.0, 3.0, 4.0]).unwrap();
         let sum = a.combine_aggregate(&b, |x, y| x + 2.0 * y);
         assert_eq!(sum.indices, vec![1, 2, 3, 4]);
         assert_eq!(sum.values, vec![0.1, 4.2, 6.3, 8.0]);

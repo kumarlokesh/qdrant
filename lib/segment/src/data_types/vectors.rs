@@ -17,7 +17,7 @@ use crate::vector_storage::query::{ContextQuery, DiscoveryQuery, RecoQuery, Tran
 #[derive(Clone, Debug, PartialEq)]
 pub enum Vector {
     Dense(DenseVector),
-    Sparse(SparseVector),
+    Sparse(SparseVector<VectorElementType>),
     MultiDense(MultiDenseVector),
 }
 
@@ -33,7 +33,7 @@ impl Vector {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum VectorRef<'a> {
     Dense(&'a [VectorElementType]),
-    Sparse(&'a SparseVector),
+    Sparse(&'a SparseVector<VectorElementType>),
     MultiDense(TypedMultiDenseVectorRef<'a, VectorElementType>),
 }
 
@@ -49,7 +49,7 @@ impl<'a> TryFrom<VectorRef<'a>> for &'a [VectorElementType] {
     }
 }
 
-impl<'a> TryFrom<VectorRef<'a>> for &'a SparseVector {
+impl<'a> TryFrom<VectorRef<'a>> for &'a SparseVector<VectorElementType> {
     type Error = OperationError;
 
     fn try_from(value: VectorRef<'a>) -> Result<Self, Self::Error> {
@@ -99,7 +99,7 @@ impl TryFrom<Vector> for DenseVector {
     }
 }
 
-impl TryFrom<Vector> for SparseVector {
+impl TryFrom<Vector> for SparseVector<VectorElementType> {
     type Error = OperationError;
 
     fn try_from(value: Vector) -> Result<Self, Self::Error> {
@@ -151,8 +151,8 @@ impl<'a> From<TypedMultiDenseVectorRef<'a, VectorElementType>> for VectorRef<'a>
     }
 }
 
-impl<'a> From<&'a SparseVector> for VectorRef<'a> {
-    fn from(val: &'a SparseVector) -> Self {
+impl<'a> From<&'a SparseVector<VectorElementType>> for VectorRef<'a> {
+    fn from(val: &'a SparseVector<VectorElementType>) -> Self {
         VectorRef::Sparse(val)
     }
 }
@@ -163,8 +163,8 @@ impl From<DenseVector> for Vector {
     }
 }
 
-impl From<SparseVector> for Vector {
-    fn from(val: SparseVector) -> Self {
+impl From<SparseVector<VectorElementType>> for Vector {
+    fn from(val: SparseVector<VectorElementType>) -> Self {
         Vector::Sparse(val)
     }
 }
@@ -366,10 +366,10 @@ impl<'a> TryInto<&'a [VectorElementType]> for &'a Vector {
     }
 }
 
-impl<'a> TryInto<&'a SparseVector> for &'a Vector {
+impl<'a> TryInto<&'a SparseVector<VectorElementType>> for &'a Vector {
     type Error = OperationError;
 
-    fn try_into(self) -> Result<&'a SparseVector, Self::Error> {
+    fn try_into(self) -> Result<&'a SparseVector<VectorElementType>, Self::Error> {
         match self {
             Vector::Dense(_) => Err(OperationError::WrongSparse),
             Vector::Sparse(v) => Ok(v),
@@ -509,7 +509,7 @@ pub struct NamedSparseVector {
     pub name: String,
     /// Vector data
     #[validate]
-    pub vector: SparseVector,
+    pub vector: SparseVector<VectorElementType>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -695,8 +695,8 @@ impl From<Vector> for QueryVector {
     }
 }
 
-impl From<SparseVector> for QueryVector {
-    fn from(vec: SparseVector) -> Self {
+impl From<SparseVector<VectorElementType>> for QueryVector {
+    fn from(vec: SparseVector<VectorElementType>) -> Self {
         Self::Nearest(Vector::Sparse(vec))
     }
 }

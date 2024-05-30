@@ -24,7 +24,7 @@ const ADVANCE_BATCH_SIZE: usize = 10_000;
 
 pub struct SearchContext<'a, 'b, T: PostingListIter<DimWeight> = PostingListIterator<'a>> {
     postings_iterators: Vec<IndexedPostingListIterator<T>>,
-    query: RemappedSparseVector,
+    query: RemappedSparseVector<DimWeight>,
     top: usize,
     is_stopped: &'a AtomicBool,
     top_results: TopK,
@@ -36,7 +36,7 @@ pub struct SearchContext<'a, 'b, T: PostingListIter<DimWeight> = PostingListIter
 
 impl<'a, 'b, T: PostingListIter<DimWeight>> SearchContext<'a, 'b, T> {
     pub fn new(
-        query: RemappedSparseVector,
+        query: RemappedSparseVector<DimWeight>,
         top: usize,
         inverted_index: &'a impl InvertedIndex<Iter<'a> = T>,
         pooled: PooledScoresHandle<'b>,

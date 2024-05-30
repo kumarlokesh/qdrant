@@ -25,7 +25,7 @@ pub enum CowMultiVector<'a, TElement: PrimitiveVectorElement> {
 #[derive(Clone, PartialEq, Debug)]
 pub enum CowVector<'a> {
     Dense(Cow<'a, [VectorElementType]>),
-    Sparse(Cow<'a, SparseVector>),
+    Sparse(Cow<'a, SparseVector<VectorElementType>>),
     MultiDense(CowMultiVector<'a, VectorElementType>),
 }
 
@@ -102,8 +102,8 @@ impl<'a> From<Vector> for CowVector<'a> {
     }
 }
 
-impl<'a> From<SparseVector> for CowVector<'a> {
-    fn from(v: SparseVector) -> Self {
+impl<'a> From<SparseVector<VectorElementType>> for CowVector<'a> {
+    fn from(v: SparseVector<VectorElementType>) -> Self {
         CowVector::Sparse(Cow::Owned(v))
     }
 }
@@ -131,8 +131,8 @@ impl<'a> From<Cow<'a, MultiDenseVector>> for CowVector<'a> {
     }
 }
 
-impl<'a> From<&'a SparseVector> for CowVector<'a> {
-    fn from(v: &'a SparseVector) -> Self {
+impl<'a> From<&'a SparseVector<VectorElementType>> for CowVector<'a> {
+    fn from(v: &'a SparseVector<VectorElementType>) -> Self {
         CowVector::Sparse(Cow::Borrowed(v))
     }
 }
@@ -149,7 +149,7 @@ impl<'a> From<&'a MultiDenseVector> for CowVector<'a> {
     }
 }
 
-impl<'a> TryFrom<CowVector<'a>> for SparseVector {
+impl<'a> TryFrom<CowVector<'a>> for SparseVector<VectorElementType> {
     type Error = OperationError;
 
     fn try_from(value: CowVector<'a>) -> Result<Self, Self::Error> {

@@ -7,7 +7,7 @@ use super::inverted_index_mmap::InvertedIndexMmap;
 use super::inverted_index_ram::InvertedIndexRam;
 use super::InvertedIndex;
 use crate::common::sparse_vector::RemappedSparseVector;
-use crate::common::types::{DimId, DimOffset};
+use crate::common::types::{DimId, DimOffset, DimWeight};
 use crate::index::posting_list::{PostingList, PostingListIterator};
 
 /// A wrapper around [`InvertedIndexRam`].
@@ -65,7 +65,7 @@ impl InvertedIndex for InvertedIndexImmutableRam {
         InvertedIndexMmap::files(path)
     }
 
-    fn upsert(&mut self, _id: PointOffsetType, _vector: RemappedSparseVector) {
+    fn upsert(&mut self, _id: PointOffsetType, _vector: RemappedSparseVector<DimWeight>) {
         panic!("Cannot upsert into a read-only RAM inverted index")
     }
 

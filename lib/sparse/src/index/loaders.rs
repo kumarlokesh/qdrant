@@ -32,6 +32,8 @@ pub struct Csr {
 
 const CSR_HEADER_SIZE: usize = size_of::<u64>() * 3;
 
+type Weight = f32;
+
 impl Csr {
     pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
         Self::from_mmap(open_read_mmap(path.as_ref())?)
@@ -71,7 +73,7 @@ impl Csr {
     }
 
     #[inline]
-    unsafe fn vec(&self, row: usize) -> Result<SparseVector, ValidationErrors> {
+    unsafe fn vec(&self, row: usize) -> Result<SparseVector<Weight>, ValidationErrors> {
         let start = *self.intptr.get_unchecked(row) as usize;
         let end = *self.intptr.get_unchecked(row + 1) as usize;
 
@@ -84,10 +86,10 @@ impl Csr {
         );
         pos += size_of::<u32>() * self.nnz;
 
-        let data = transmute_from_u8_to_slice::<f32>(
+        let data = transmute_from_u8_to_slice::<Weight>(
             self.mmap
                 .as_ref()
-                .get_unchecked(pos + size_of::<f32>() * start..pos + size_of::<f32>() * end),
+                .get_unchecked(pos + size_of::<Weight>() * start..pos + size_of::<Weight>() * end),
         );
 
         SparseVector::new(indices.to_vec(), data.to_vec())
@@ -101,7 +103,7 @@ pub struct CsrIter<'a> {
 }
 
 impl<'a> Iterator for CsrIter<'a> {
-    type Item = Result<SparseVector, ValidationErrors>;
+    type Item = Result<SparseVector<Weight>, ValidationErrors>;
 
     fn next(&mut self) -> Option<Self::Item> {
         (self.row < self.csr.nrow).then(|| {
@@ -118,7 +120,7 @@ impl<'a> ExactSizeIterator for CsrIter<'a> {
     }
 }
 
-pub fn load_csr_vecs(path: impl AsRef<Path>) -> io::Result<Vec<SparseVector>> {
+pub fn load_csr_vecs(path: impl AsRef<Path>) -> io::Result<Vec<SparseVector<Weight>>> {
     Csr::open(path)?
         .iter()
         .collect::<Result<Vec<_>, _>>()
@@ -135,13 +137,13 @@ impl JsonReader {
 }
 
 impl Iterator for JsonReader {
-    type Item = Result<SparseVector, io::Error>;
+    type Item = Result<SparseVector<Weight>, io::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|line| {
             line.map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
                 .and_then(|line| {
-                    let data: HashMap<String, f32> = serde_json::from_str(&line)?;
+                    let data: HashMap<String, Weight> = serde_json::from_str(&line)?;
                     SparseVector::new(
                         data.keys()
                             .map(|k| k.parse())

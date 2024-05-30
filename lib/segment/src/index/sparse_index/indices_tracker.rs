@@ -7,6 +7,7 @@ use sparse::common::sparse_vector::{RemappedSparseVector, SparseVector};
 use sparse::common::types::{DimId, DimOffset};
 
 use crate::common::operation_error::OperationResult;
+use crate::data_types::vectors::VectorElementType;
 
 const INDICES_TRACKER_FILE_NAME: &str = "indices_tracker.json";
 
@@ -30,7 +31,7 @@ impl IndicesTracker {
         path.join(INDICES_TRACKER_FILE_NAME)
     }
 
-    pub fn register_indices(&mut self, vector: &SparseVector) {
+    pub fn register_indices(&mut self, vector: &SparseVector<VectorElementType>) {
         for index in &vector.indices {
             if !self.map.contains_key(index) {
                 self.map.insert(*index, self.map.len() as DimId);
@@ -42,7 +43,10 @@ impl IndicesTracker {
         self.map.get(&index).copied()
     }
 
-    pub fn remap_vector(&self, vector: SparseVector) -> RemappedSparseVector {
+    pub fn remap_vector(
+        &self,
+        vector: SparseVector<VectorElementType>,
+    ) -> RemappedSparseVector<VectorElementType> {
         let mut placeholder_indices = self.map.len() as DimOffset;
         let SparseVector {
             mut indices,

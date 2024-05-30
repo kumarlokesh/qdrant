@@ -14,7 +14,7 @@ use crate::common::operation_error::{check_process_stopped, OperationError, Oper
 use crate::common::rocksdb_wrapper::DatabaseColumnWrapper;
 use crate::common::Flusher;
 use crate::data_types::named_vectors::CowVector;
-use crate::data_types::vectors::VectorRef;
+use crate::data_types::vectors::{VectorElementType, VectorRef};
 use crate::types::{Distance, VectorStorageDatatype};
 use crate::vector_storage::bitvec::bitvec_set_deleted;
 use crate::vector_storage::common::StoredRecord;
@@ -22,7 +22,7 @@ use crate::vector_storage::{VectorStorage, VectorStorageEnum};
 
 pub const SPARSE_VECTOR_DISTANCE: Distance = Distance::Dot;
 
-type StoredSparseVector = StoredRecord<SparseVector>;
+type StoredSparseVector = StoredRecord<SparseVector<VectorElementType>>;
 
 /// In-memory vector storage with on-update persistence using `store`
 pub struct SimpleSparseVectorStorage {
@@ -102,7 +102,7 @@ impl SimpleSparseVectorStorage {
         &mut self,
         key: PointOffsetType,
         deleted: bool,
-        vector: Option<&SparseVector>,
+        vector: Option<&SparseVector<VectorElementType>>,
     ) -> OperationResult<()> {
         // Write vector state to buffer record
         let record = &mut self.update_buffer;
@@ -127,7 +127,7 @@ impl SimpleSparseVectorStorage {
 }
 
 impl SparseVectorStorage for SimpleSparseVectorStorage {
-    fn get_sparse(&self, key: PointOffsetType) -> OperationResult<SparseVector> {
+    fn get_sparse(&self, key: PointOffsetType) -> OperationResult<SparseVector<VectorElementType>> {
         let bin_key = bincode::serialize(&key)
             .map_err(|_| OperationError::service_error("Cannot serialize sparse vector key"))?;
         let data = self.db_wrapper.get(bin_key)?;
@@ -171,7 +171,7 @@ impl VectorStorage for SimpleSparseVectorStorage {
     }
 
     fn insert_vector(&mut self, key: PointOffsetType, vector: VectorRef) -> OperationResult<()> {
-        let vector: &SparseVector = vector.try_into()?;
+        let vector: &SparseVector<VectorElementType> = vector.try_into()?;
         debug_assert!(vector.is_sorted());
         self.total_vector_count = std::cmp::max(self.total_vector_count, key as usize + 1);
         self.set_deleted(key, false);

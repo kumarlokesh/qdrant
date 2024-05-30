@@ -110,7 +110,7 @@ pub trait DenseVectorStorage<T: PrimitiveVectorElement>: VectorStorage {
 }
 
 pub trait SparseVectorStorage: VectorStorage {
-    fn get_sparse(&self, key: PointOffsetType) -> OperationResult<SparseVector>;
+    fn get_sparse(&self, key: PointOffsetType) -> OperationResult<SparseVector<VectorElementType>>;
 }
 
 pub trait MultiVectorStorage<T: PrimitiveVectorElement>: VectorStorage {

@@ -14,6 +14,7 @@ use rand::SeedableRng as _;
 use sparse::common::scores_memory_pool::ScoresMemoryPool;
 use sparse::common::sparse_vector::{RemappedSparseVector, SparseVector};
 use sparse::common::sparse_vector_fixture::{random_positive_sparse_vector, random_sparse_vector};
+use sparse::common::types::DimWeight;
 use sparse::index::inverted_index::inverted_index_compressed_immutable_ram::InvertedIndexImmutableRam;
 use sparse::index::inverted_index::inverted_index_compressed_mmap::InvertedIndexMmap as InvertedIndexCompressedMmap;
 use sparse::index::inverted_index::inverted_index_mmap::InvertedIndexMmap;
@@ -53,12 +54,12 @@ fn bench_uniform_random(c: &mut Criterion, name: &str, num_vectors: usize) {
     let index = InvertedIndexBuilder::build_from_iterator((0..num_vectors).map(|idx| {
         (
             idx as PointOffsetType,
-            random_sparse_vector(&mut rnd, MAX_SPARSE_DIM).into_remapped(),
+            random_sparse_vector::<_, DimWeight>(&mut rnd, MAX_SPARSE_DIM).into_remapped(),
         )
     }));
 
     let query_vectors = (0..NUM_QUERIES)
-        .map(|_| random_positive_sparse_vector(&mut rnd, MAX_SPARSE_DIM))
+        .map(|_| random_positive_sparse_vector::<_, DimWeight>(&mut rnd, MAX_SPARSE_DIM))
         .collect::<Vec<_>>();
 
     run_bench(c, name, index, &query_vectors);
@@ -86,7 +87,7 @@ pub fn run_bench(
     c: &mut Criterion,
     name: &str,
     index: InvertedIndexRam,
-    query_vectors: &[SparseVector],
+    query_vectors: &[SparseVector<DimWeight>],
 ) {
     let hottest_id = index
         .postings
@@ -170,8 +171,8 @@ pub fn run_bench(
 fn run_bench2(
     mut group: criterion::BenchmarkGroup<'_, impl Measurement>,
     index: &impl InvertedIndex,
-    query_vectors: &[SparseVector],
-    hottest_query_vectors: &[RemappedSparseVector],
+    query_vectors: &[SparseVector<DimWeight>],
+    hottest_query_vectors: &[RemappedSparseVector<DimWeight>],
 ) {
     let pool = ScoresMemoryPool::new();
     let stopped = AtomicBool::new(false);

@@ -7,7 +7,7 @@ use sparse::common::sparse_vector::SparseVector;
 use tempfile::Builder;
 
 use crate::common::rocksdb_wrapper::{open_db, DB_VECTOR_CF};
-use crate::data_types::vectors::QueryVector;
+use crate::data_types::vectors::{QueryVector, VectorElementType};
 use crate::fixtures::payload_context_fixture::FixtureIdTracker;
 use crate::id_tracker::IdTrackerSS;
 use crate::vector_storage::query::RecoQuery;
@@ -15,7 +15,7 @@ use crate::vector_storage::simple_sparse_vector_storage::open_simple_sparse_vect
 use crate::vector_storage::{new_raw_scorer, VectorStorage, VectorStorageEnum};
 
 fn do_test_delete_points(storage: Arc<AtomicRefCell<VectorStorageEnum>>) {
-    let points: Vec<SparseVector> = vec![
+    let points: Vec<SparseVector<VectorElementType>> = vec![
         vec![(0, 1.0), (2, 1.0), (3, 1.0)],
         vec![(0, 1.0), (2, 1.0)],
         vec![(0, 1.0), (1, 1.0), (2, 1.0), (3, 1.0)],
@@ -43,7 +43,7 @@ fn do_test_delete_points(storage: Arc<AtomicRefCell<VectorStorageEnum>>) {
     // Check that all points are inserted
     for (i, vec) in points.iter().enumerate() {
         let stored_vec = borrowed_storage.get_vector(i as PointOffsetType);
-        let sparse: &SparseVector = stored_vec.as_vec_ref().try_into().unwrap();
+        let sparse: &SparseVector<VectorElementType> = stored_vec.as_vec_ref().try_into().unwrap();
         assert_eq!(sparse, vec);
     }
 
@@ -67,7 +67,7 @@ fn do_test_delete_points(storage: Arc<AtomicRefCell<VectorStorageEnum>>) {
     // Because raw scorer for nearest Query is incorrect
     // (nearest search is processed using inverted index),
     // use Recommend query to simulate nearest search
-    let vector: SparseVector = vec![(0, 1.0), (1, 1.0), (2, 1.0), (3, 1.0)]
+    let vector: SparseVector<VectorElementType> = vec![(0, 1.0), (1, 1.0), (2, 1.0), (3, 1.0)]
         .try_into()
         .unwrap();
     let query_vector = QueryVector::Recommend(RecoQuery {
@@ -115,7 +115,7 @@ fn do_test_delete_points(storage: Arc<AtomicRefCell<VectorStorageEnum>>) {
 }
 
 fn do_test_update_from_delete_points(storage: Arc<AtomicRefCell<VectorStorageEnum>>) {
-    let points: Vec<SparseVector> = vec![
+    let points: Vec<SparseVector<VectorElementType>> = vec![
         vec![(0, 1.0), (2, 1.0), (3, 1.0)],
         vec![(0, 1.0), (2, 1.0)],
         vec![(0, 1.0), (1, 1.0), (2, 1.0), (3, 1.0)],
@@ -170,7 +170,7 @@ fn do_test_update_from_delete_points(storage: Arc<AtomicRefCell<VectorStorageEnu
     // Because raw scorer for nearest Query is incorrect
     // (nearest search is processed using inverted index),
     // use Recommend query to simulate nearest search
-    let vector: SparseVector = vec![(0, 1.0), (1, 1.0), (2, 1.0), (3, 1.0)]
+    let vector: SparseVector<VectorElementType> = vec![(0, 1.0), (1, 1.0), (2, 1.0), (3, 1.0)]
         .try_into()
         .unwrap();
     let query_vector = QueryVector::Recommend(RecoQuery {

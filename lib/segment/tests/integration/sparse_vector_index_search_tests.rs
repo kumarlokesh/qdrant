@@ -12,7 +12,7 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 use segment::common::operation_error::OperationResult;
 use segment::data_types::named_vectors::NamedVectors;
-use segment::data_types::vectors::{QueryVector, Vector};
+use segment::data_types::vectors::{QueryVector, Vector, VectorElementType};
 use segment::entry::entry_point::SegmentEntry;
 use segment::fixtures::payload_fixtures::STR_KEY;
 use segment::fixtures::sparse_fixtures::{fixture_open_sparse_index, fixture_sparse_index_ram};
@@ -157,7 +157,7 @@ fn check_index_storage_consistency<T: InvertedIndex>(sparse_vector_index: &Spars
     for id in 0..point_count as PointOffsetType {
         // assuming no deleted points
         let vector = borrowed_vector_storage.get_vector(id);
-        let vector: &SparseVector = vector.as_vec_ref().try_into().unwrap();
+        let vector: &SparseVector<VectorElementType> = vector.as_vec_ref().try_into().unwrap();
         let remapped_vector = sparse_vector_index
             .indices_tracker()
             .remap_vector(vector.to_owned());
@@ -569,7 +569,7 @@ fn handling_empty_sparse_vectors() {
 
     // add empty points to storage
     for idx in 0..NUM_VECTORS {
-        let vec = &SparseVector::new(vec![], vec![]).unwrap();
+        let vec = &SparseVector::<VectorElementType>::new(vec![], vec![]).unwrap();
         borrowed_storage
             .insert_vector(idx as PointOffsetType, vec.into())
             .unwrap();

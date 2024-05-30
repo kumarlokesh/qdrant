@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use common::types::PointOffsetType;
 
 use crate::common::sparse_vector::RemappedSparseVector;
-use crate::common::types::DimId;
+use crate::common::types::{DimId, DimWeight};
 use crate::index::inverted_index::InvertedIndex;
 use crate::index::posting_list::{PostingList, PostingListIterator};
 use crate::index::posting_list_common::PostingElementEx;
@@ -48,7 +48,7 @@ impl InvertedIndex for InvertedIndexRam {
         Vec::new()
     }
 
-    fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector) {
+    fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector<DimWeight>) {
         self.upsert(id, vector);
     }
 
@@ -86,7 +86,7 @@ impl InvertedIndexRam {
     }
 
     /// Upsert a vector into the inverted index.
-    pub fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector) {
+    pub fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector<DimWeight>) {
         for (dim_id, weight) in vector.indices.into_iter().zip(vector.values.into_iter()) {
             let dim_id = dim_id as usize;
             match self.postings.get_mut(dim_id) {
@@ -182,9 +182,9 @@ mod tests {
 
     #[test]
     fn test_upsert_insert_equivalence() {
-        let first_vec: RemappedSparseVector = [(1, 10.0), (2, 10.0), (3, 10.0)].into();
-        let second_vec: RemappedSparseVector = [(1, 20.0), (2, 20.0), (3, 20.0)].into();
-        let third_vec: RemappedSparseVector = [(1, 30.0), (2, 30.0), (3, 30.0)].into();
+        let first_vec: RemappedSparseVector<DimWeight> = [(1, 10.0), (2, 10.0), (3, 10.0)].into();
+        let second_vec: RemappedSparseVector<DimWeight> = [(1, 20.0), (2, 20.0), (3, 20.0)].into();
+        let third_vec: RemappedSparseVector<DimWeight> = [(1, 30.0), (2, 30.0), (3, 30.0)].into();
 
         let mut builder = InvertedIndexBuilder::new();
         builder.add(1, first_vec.clone());
