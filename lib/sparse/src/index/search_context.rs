@@ -8,24 +8,23 @@ use common::types::{PointOffsetType, ScoredPointOffset};
 use super::posting_list_common::PostingListIter;
 use crate::common::scores_memory_pool::PooledScoresHandle;
 use crate::common::sparse_vector::RemappedSparseVector;
-use crate::common::types::{DimId, DimWeight};
+use crate::common::types::{DimId, Weight};
 use crate::index::inverted_index::InvertedIndex;
 use crate::index::posting_list::PostingListIterator;
 
 /// Iterator over posting lists with a reference to the corresponding query index and weight
-pub struct IndexedPostingListIterator<T: PostingListIter<DimWeight>> {
+pub struct IndexedPostingListIterator<W, T: PostingListIter<W>> {
     posting_list_iterator: T,
     query_index: DimId,
-    query_weight: DimWeight,
+    query_weight: W,
 }
 
 /// Making this larger makes the search faster but uses more (pooled) memory
 const ADVANCE_BATCH_SIZE: usize = 10_000;
 
-pub struct SearchContext<'a, 'b, T: PostingListIter<DimWeight> = PostingListIterator<'a, DimWeight>>
-{
-    postings_iterators: Vec<IndexedPostingListIterator<T>>,
-    query: RemappedSparseVector<DimWeight>,
+pub struct SearchContext<'a, 'b, W: Weight, T: PostingListIter<W> = PostingListIterator<'a, W>> {
+    postings_iterators: Vec<IndexedPostingListIterator<W, T>>,
+    query: RemappedSparseVector<W>,
     top: usize,
     is_stopped: &'a AtomicBool,
     top_results: TopK,
@@ -35,14 +34,14 @@ pub struct SearchContext<'a, 'b, T: PostingListIter<DimWeight> = PostingListIter
     use_pruning: bool,
 }
 
-impl<'a, 'b, T: PostingListIter<DimWeight>> SearchContext<'a, 'b, T> {
+impl<'a, 'b, W: Weight, T: PostingListIter<W>> SearchContext<'a, 'b, W, T> {
     pub fn new(
-        query: RemappedSparseVector<DimWeight>,
+        query: RemappedSparseVector<W>,
         top: usize,
-        inverted_index: &'a impl InvertedIndex<DimWeight, Iter<'a> = T>,
+        inverted_index: &'a impl InvertedIndex<W, Iter<'a> = T>,
         pooled: PooledScoresHandle<'b>,
         is_stopped: &'a AtomicBool,
-    ) -> SearchContext<'a, 'b, T> {
+    ) -> Self {
         let mut postings_iterators = Vec::new();
         // track min and max record ids across all posting lists
         let mut max_record_id = 0;
@@ -75,7 +74,8 @@ impl<'a, 'b, T: PostingListIter<DimWeight>> SearchContext<'a, 'b, T> {
         // Query vectors with negative values can NOT use the pruning mechanism which relies on the pre-computed `max_next_weight`.
         // The max contribution per posting list that we calculate is not made to compute the max value of two negative numbers.
         // This is a limitation of the current pruning implementation.
-        let use_pruning = T::reliable_max_next_weight() && query.values.iter().all(|v| *v >= 0.0);
+        let use_pruning =
+            T::reliable_max_next_weight() && query.values.iter().all(|v| *v >= Default::default());
         let min_record_id = Some(min_record_id);
         SearchContext {
             postings_iterators,
@@ -145,7 +145,7 @@ impl<'a, 'b, T: PostingListIter<DimWeight>> SearchContext<'a, 'b, T> {
                 self.pooled.scores.as_mut_slice(),
                 #[inline(always)]
                 |scores, id, weight| {
-                    let element_score = weight * posting.query_weight;
+                    let element_score = W::score(weight, posting.query_weight);
                     let local_id = (id - batch_start_id) as usize;
                     // SAFETY: `id` is within `batch_start_id..=batch_last_id`
                     // Thus, `local_id` is within `0..batch_len`.
@@ -183,7 +183,7 @@ impl<'a, 'b, T: PostingListIter<DimWeight>> SearchContext<'a, 'b, T> {
                 if !filter_condition(id) {
                     return;
                 }
-                let score = weight * posting.query_weight;
+                let score = W::score(weight, posting.query_weight);
                 self.top_results.push(ScoredPointOffset { score, idx: id });
             },
         );
@@ -192,7 +192,7 @@ impl<'a, 'b, T: PostingListIter<DimWeight>> SearchContext<'a, 'b, T> {
     /// Returns the next min record id from all posting list iterators
     ///
     /// returns None if all posting list iterators are exhausted
-    fn next_min_id(to_inspect: &mut [IndexedPostingListIterator<T>]) -> Option<PointOffsetType> {
+    fn next_min_id(to_inspect: &mut [IndexedPostingListIterator<W, T>]) -> Option<PointOffsetType> {
         let mut min_record_id = None;
 
         // Iterate to find min record id at the head of the posting lists
@@ -341,8 +341,10 @@ impl<'a, 'b, T: PostingListIter<DimWeight>> SearchContext<'a, 'b, T> {
                             // we can under prune as we should actually check the best score up to `next_min_id` - 1 only
                             // instead of the max possible score but it is not possible to know the best score up to `next_min_id` - 1
                             let max_weight_from_list = element.weight.max(element.max_next_weight);
-                            let max_score_contribution =
-                                max_weight_from_list * longest_posting_iterator.query_weight;
+                            let max_score_contribution = Weight::score(
+                                max_weight_from_list,
+                                longest_posting_iterator.query_weight,
+                            );
                             if max_score_contribution <= min_score {
                                 // prune to next_min_id
                                 let longest_posting_iterator =
@@ -363,7 +365,7 @@ impl<'a, 'b, T: PostingListIter<DimWeight>> SearchContext<'a, 'b, T> {
                     // check against the max possible score using the `max_next_weight`
                     let max_weight_from_list = element.weight.max(element.max_next_weight);
                     let max_score_contribution =
-                        max_weight_from_list * longest_posting_iterator.query_weight;
+                        Weight::score(max_weight_from_list, longest_posting_iterator.query_weight);
                     if max_score_contribution <= min_score {
                         // prune to the end!
                         let longest_posting_iterator = &mut self.postings_iterators[0];
@@ -389,6 +391,7 @@ mod tests {
     use crate::common::scores_memory_pool::ScoresMemoryPool;
     use crate::common::sparse_vector::SparseVector;
     use crate::common::sparse_vector_fixture::random_sparse_vector;
+    use crate::common::types::DimWeight;
     use crate::index::inverted_index::inverted_index_mmap::InvertedIndexMmap;
     use crate::index::inverted_index::inverted_index_ram::InvertedIndexRam;
     use crate::index::inverted_index::inverted_index_ram_builder::InvertedIndexBuilder;
@@ -404,7 +407,7 @@ mod tests {
     #[test]
     fn test_empty_query() {
         let is_stopped = AtomicBool::new(false);
-        let index = InvertedIndexRam::empty();
+        let index = InvertedIndexRam::<DimWeight>::empty();
         let mut search_context = SearchContext::new(
             RemappedSparseVector::default(), // empty query vector
             10,
