@@ -1,6 +1,5 @@
 pub mod anonymize;
 pub mod error_logging;
-pub mod macros;
 pub mod mmap_type;
 pub mod operation_error;
 pub mod operation_time_statistics;

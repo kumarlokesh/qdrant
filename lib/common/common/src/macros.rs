@@ -5,6 +5,7 @@
 /// #[derive_args(<i32> => "NewName", ...)]
 /// ```
 /// Workaround for https://github.com/GREsau/schemars/issues/193
+#[macro_export]
 macro_rules! schemars_rename_generics {
     {
         #[doc = $doc:literal]
@@ -28,7 +29,7 @@ macro_rules! schemars_rename_generics {
                 Temp::<$($old_params),*>::json_schema(gen)
             }
         }
-        $crate::common::macros::schemars_rename_generics! {
+        $crate::schemars_rename_generics! {
             #[doc = $doc]
             #[derive_args( $( $rest )* )]
             $( #[$attrs] )*
@@ -38,4 +39,3 @@ macro_rules! schemars_rename_generics {
     };
     { #[doc = $doc:literal] #[derive_args()] $( $rest:tt )* } => {}
 }
-pub(crate) use schemars_rename_generics;

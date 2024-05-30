@@ -1439,7 +1439,7 @@ pub enum RangeInterface {
 }
 
 /// Range filter request
-#[macro_rules_attribute::macro_rules_derive(crate::common::macros::schemars_rename_generics)]
+#[macro_rules_attribute::macro_rules_derive(common::schemars_rename_generics)]
 #[derive_args(< FloatPayloadType > => "Range", < DateTimePayloadType > => "DatetimeRange")]
 #[derive(Debug, Deserialize, Serialize, Default, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]

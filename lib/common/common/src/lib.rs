@@ -1,6 +1,7 @@
 pub mod cpu;
 pub mod defaults;
 pub mod fixed_length_priority_queue;
+pub mod macros;
 pub mod math;
 pub mod panic;
 pub mod top_k;
