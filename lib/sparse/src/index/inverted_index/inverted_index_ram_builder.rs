@@ -9,7 +9,7 @@ use crate::index::posting_list::PostingBuilder;
 
 /// Builder for InvertedIndexRam
 pub struct InvertedIndexBuilder {
-    pub posting_builders: Vec<PostingBuilder>,
+    pub posting_builders: Vec<PostingBuilder<DimWeight>>,
     pub vector_count: usize,
 }
 

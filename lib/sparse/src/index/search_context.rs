@@ -22,7 +22,8 @@ pub struct IndexedPostingListIterator<T: PostingListIter<DimWeight>> {
 /// Making this larger makes the search faster but uses more (pooled) memory
 const ADVANCE_BATCH_SIZE: usize = 10_000;
 
-pub struct SearchContext<'a, 'b, T: PostingListIter<DimWeight> = PostingListIterator<'a>> {
+pub struct SearchContext<'a, 'b, T: PostingListIter<DimWeight> = PostingListIterator<'a, DimWeight>>
+{
     postings_iterators: Vec<IndexedPostingListIterator<T>>,
     query: RemappedSparseVector<DimWeight>,
     top: usize,

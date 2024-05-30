@@ -18,7 +18,7 @@ pub struct InvertedIndexImmutableRam {
 }
 
 impl InvertedIndex for InvertedIndexImmutableRam {
-    type Iter<'a> = PostingListIterator<'a>;
+    type Iter<'a> = PostingListIterator<'a, DimWeight>;
 
     fn open(path: &Path) -> std::io::Result<Self> {
         let mmap_inverted_index = InvertedIndexMmap::load(path)?;
@@ -49,7 +49,7 @@ impl InvertedIndex for InvertedIndexImmutableRam {
         Ok(())
     }
 
-    fn get(&self, id: &DimOffset) -> Option<PostingListIterator> {
+    fn get(&self, id: &DimOffset) -> Option<PostingListIterator<DimWeight>> {
         InvertedIndex::get(&self.inner, id)
     }
 

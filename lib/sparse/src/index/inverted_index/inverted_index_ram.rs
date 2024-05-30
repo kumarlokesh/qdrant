@@ -15,14 +15,14 @@ use crate::index::posting_list_common::PostingElementEx;
 pub struct InvertedIndexRam {
     /// Posting lists for each dimension flattened (dimension id -> posting list)
     /// Gaps are filled with empty posting lists
-    pub postings: Vec<PostingList>,
+    pub postings: Vec<PostingList<DimWeight>>,
     /// Number of unique indexed vectors
     /// pre-computed on build and upsert to avoid having to traverse the posting lists.
     pub vector_count: usize,
 }
 
 impl InvertedIndex for InvertedIndexRam {
-    type Iter<'a> = PostingListIterator<'a>;
+    type Iter<'a> = PostingListIterator<'a, DimWeight>;
 
     fn open(_path: &Path) -> std::io::Result<Self> {
         panic!("InvertedIndexRam is not supposed to be loaded");
@@ -32,7 +32,7 @@ impl InvertedIndex for InvertedIndexRam {
         panic!("InvertedIndexRam is not supposed to be saved");
     }
 
-    fn get(&self, id: &DimId) -> Option<PostingListIterator> {
+    fn get(&self, id: &DimId) -> Option<PostingListIterator<DimWeight>> {
         self.get(id).map(|posting_list| posting_list.iter())
     }
 
@@ -81,7 +81,7 @@ impl InvertedIndexRam {
     }
 
     /// Get posting list for dimension id
-    pub fn get(&self, id: &DimId) -> Option<&PostingList> {
+    pub fn get(&self, id: &DimId) -> Option<&PostingList<DimWeight>> {
         self.postings.get((*id) as usize)
     }
 

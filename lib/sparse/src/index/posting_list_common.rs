@@ -2,9 +2,7 @@ use std::fmt::Debug;
 
 use common::types::PointOffsetType;
 
-use crate::common::types::DimWeight;
-
-pub const DEFAULT_MAX_NEXT_WEIGHT: DimWeight = f32::NEG_INFINITY;
+use crate::common::types::Weight;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PostingElement<W> {
@@ -24,14 +22,14 @@ pub struct PostingElementEx<W> {
     pub max_next_weight: W,
 }
 
-impl PostingElementEx<DimWeight> {
+impl<W: Weight> PostingElementEx<W> {
     /// Initialize negative infinity as max_next_weight.
     /// Needs to be updated at insertion time.
-    pub(crate) fn new(record_id: PointOffsetType, weight: DimWeight) -> Self {
+    pub(crate) fn new(record_id: PointOffsetType, weight: W) -> Self {
         PostingElementEx {
             record_id,
             weight,
-            max_next_weight: DEFAULT_MAX_NEXT_WEIGHT,
+            max_next_weight: W::neg_infinity(),
         }
     }
 }

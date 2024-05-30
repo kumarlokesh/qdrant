@@ -44,7 +44,7 @@ struct PostingListFileHeader {
 }
 
 impl InvertedIndex for InvertedIndexMmap {
-    type Iter<'a> = PostingListIterator<'a>;
+    type Iter<'a> = PostingListIterator<'a, DimWeight>;
 
     fn open(path: &Path) -> std::io::Result<Self> {
         Self::load(path)
@@ -55,7 +55,7 @@ impl InvertedIndex for InvertedIndexMmap {
         Ok(())
     }
 
-    fn get(&self, id: &DimId) -> Option<PostingListIterator> {
+    fn get(&self, id: &DimId) -> Option<PostingListIterator<DimWeight>> {
         self.get(id).map(PostingListIterator::new)
     }
 

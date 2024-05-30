@@ -1,23 +1,17 @@
-use std::cmp::max;
-
 use common::types::PointOffsetType;
-use ordered_float::OrderedFloat;
 
-use super::posting_list_common::PostingListIter;
-use crate::common::types::DimWeight;
-
-type PostingElement = super::posting_list_common::PostingElement<DimWeight>;
-type PostingElementEx = super::posting_list_common::PostingElementEx<DimWeight>;
+use super::posting_list_common::{PostingElement, PostingElementEx, PostingListIter};
+use crate::common::types::Weight;
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct PostingList {
+pub struct PostingList<W> {
     /// List of the posting elements ordered by id
-    pub elements: Vec<PostingElementEx>,
+    pub elements: Vec<PostingElementEx<W>>,
 }
 
-impl PostingList {
+impl<W: Weight> PostingList<W> {
     #[cfg(test)]
-    pub fn from(records: Vec<(PointOffsetType, DimWeight)>) -> PostingList {
+    pub fn from(records: Vec<(PointOffsetType, W)>) -> Self {
         let mut posting_list = PostingBuilder::new();
         for (id, weight) in records {
             posting_list.add(id, weight);
@@ -26,7 +20,7 @@ impl PostingList {
     }
 
     /// Creates a new posting list with a single element.
-    pub fn new_one(record_id: PointOffsetType, weight: DimWeight) -> PostingList {
+    pub fn new_one(record_id: PointOffsetType, weight: W) -> Self {
         PostingList {
             elements: vec![PostingElementEx::new(record_id, weight)],
         }
@@ -36,7 +30,7 @@ impl PostingList {
     ///
     /// Worst case is adding a new element at the end of the list with a very large weight.
     /// This forces to propagate it as potential max_next_weight to all the previous elements.
-    pub fn upsert(&mut self, posting_element: PostingElementEx) {
+    pub fn upsert(&mut self, posting_element: PostingElementEx<W>) {
         // find insertion point in sorted posting list (most expensive operation for large posting list)
         let index = self
             .elements
@@ -79,11 +73,10 @@ impl PostingList {
     fn propagate_max_next_weight_to_the_left(&mut self, up_to_index: usize) {
         // used element at `up_to_index` as the starting point
         let starting_element = &self.elements[up_to_index];
-        let mut max_next_weight = max(
-            OrderedFloat(starting_element.max_next_weight),
-            OrderedFloat(starting_element.weight),
-        )
-        .0;
+
+        let mut max_next_weight = starting_element
+            .max_next_weight
+            .max(starting_element.weight);
 
         // propagate max_next_weight update to the previous entries
         for element in self.elements[..up_to_index].iter_mut().rev() {
@@ -99,35 +92,35 @@ impl PostingList {
         }
     }
 
-    pub fn iter(&self) -> PostingListIterator {
+    pub fn iter(&self) -> PostingListIterator<W> {
         PostingListIterator::new(&self.elements)
     }
 }
 
-pub struct PostingBuilder {
-    elements: Vec<PostingElementEx>,
+pub struct PostingBuilder<W> {
+    elements: Vec<PostingElementEx<W>>,
 }
 
-impl Default for PostingBuilder {
+impl<W: Weight> Default for PostingBuilder<W> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl PostingBuilder {
-    pub fn new() -> PostingBuilder {
+impl<W: Weight> PostingBuilder<W> {
+    pub fn new() -> Self {
         PostingBuilder {
             elements: Vec::new(),
         }
     }
 
     /// Add a new record to the posting list.
-    pub fn add(&mut self, record_id: PointOffsetType, weight: DimWeight) {
+    pub fn add(&mut self, record_id: PointOffsetType, weight: W) {
         self.elements.push(PostingElementEx::new(record_id, weight));
     }
 
     /// Consume the builder and return the posting list.
-    pub fn build(mut self) -> PostingList {
+    pub fn build(mut self) -> PostingList<W> {
         // Sort by id
         self.elements.sort_unstable_by_key(|e| e.record_id);
 
@@ -144,7 +137,7 @@ impl PostingBuilder {
         }
 
         // Calculate the `max_next_weight` for all elements starting from the end
-        let mut max_next_weight = f32::NEG_INFINITY;
+        let mut max_next_weight = W::neg_infinity();
         for element in self.elements.iter_mut().rev() {
             element.max_next_weight = max_next_weight;
             max_next_weight = max_next_weight.max(element.weight);
@@ -158,14 +151,14 @@ impl PostingBuilder {
 
 /// Iterator over posting list elements offering skipping abilities to avoid full iteration.
 #[derive(Debug, Clone)]
-pub struct PostingListIterator<'a> {
-    pub elements: &'a [PostingElementEx],
+pub struct PostingListIterator<'a, W> {
+    pub elements: &'a [PostingElementEx<W>],
     pub current_index: usize,
 }
 
-impl<'a> PostingListIter<DimWeight> for PostingListIterator<'a> {
+impl<'a, W: Weight> PostingListIter<W> for PostingListIterator<'a, W> {
     #[inline]
-    fn peek(&mut self) -> Option<PostingElementEx> {
+    fn peek(&mut self) -> Option<PostingElementEx<W>> {
         self.elements.get(self.current_index).cloned()
     }
 
@@ -175,7 +168,7 @@ impl<'a> PostingListIter<DimWeight> for PostingListIterator<'a> {
     }
 
     #[inline]
-    fn skip_to(&mut self, record_id: PointOffsetType) -> Option<PostingElementEx> {
+    fn skip_to(&mut self, record_id: PointOffsetType) -> Option<PostingElementEx<W>> {
         self.skip_to(record_id)
     }
 
@@ -198,7 +191,7 @@ impl<'a> PostingListIter<DimWeight> for PostingListIterator<'a> {
         &mut self,
         id: PointOffsetType,
         ctx: &mut Ctx,
-        mut f: impl FnMut(&mut Ctx, PointOffsetType, DimWeight),
+        mut f: impl FnMut(&mut Ctx, PointOffsetType, W),
     ) {
         let mut current_index = self.current_index;
         for element in &self.elements[current_index..] {
@@ -215,13 +208,13 @@ impl<'a> PostingListIter<DimWeight> for PostingListIterator<'a> {
         true
     }
 
-    fn into_std_iter(self) -> impl Iterator<Item = PostingElement> {
+    fn into_std_iter(self) -> impl Iterator<Item = PostingElement<W>> {
         self.elements.iter().cloned().map(PostingElement::from)
     }
 }
 
-impl<'a> PostingListIterator<'a> {
-    pub fn new(elements: &'a [PostingElementEx]) -> PostingListIterator<'a> {
+impl<'a, W: Weight> PostingListIterator<'a, W> {
+    pub fn new(elements: &'a [PostingElementEx<W>]) -> Self {
         PostingListIterator {
             elements,
             current_index: 0,
@@ -241,7 +234,7 @@ impl<'a> PostingListIterator<'a> {
     }
 
     /// Returns the next element without advancing the iterator.
-    pub fn peek(&self) -> Option<&PostingElementEx> {
+    pub fn peek(&self) -> Option<&PostingElementEx<W>> {
         self.elements.get(self.current_index)
     }
 
@@ -256,7 +249,7 @@ impl<'a> PostingListIterator<'a> {
     /// If the iterator is already at the end, None is returned.
     /// If the iterator skipped to the end, None is returned and current index is set to the length of the list.
     /// Uses binary search.
-    pub fn skip_to(&mut self, id: PointOffsetType) -> Option<PostingElementEx> {
+    pub fn skip_to(&mut self, id: PointOffsetType) -> Option<PostingElementEx<W>> {
         // Check if we are already at the end
         if self.current_index >= self.elements.len() {
             return None;
@@ -279,7 +272,7 @@ impl<'a> PostingListIterator<'a> {
     }
 
     /// Skips to the end of the posting list and returns None.
-    pub fn skip_to_end(&mut self) -> Option<&PostingElementEx> {
+    pub fn skip_to_end(&mut self) -> Option<&PostingElementEx<W>> {
         self.current_index = self.elements.len();
         None
     }
@@ -288,7 +281,7 @@ impl<'a> PostingListIterator<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::index::posting_list_common::DEFAULT_MAX_NEXT_WEIGHT;
+    use crate::common::types::DimWeight;
 
     #[test]
     fn test_posting_operations() {
@@ -348,7 +341,7 @@ mod tests {
         assert_eq!(posting_list.elements[2].weight, 3.0);
         assert_eq!(
             posting_list.elements[2].max_next_weight,
-            DEFAULT_MAX_NEXT_WEIGHT
+            DimWeight::neg_infinity(),
         );
 
         // insert mew last element
@@ -357,7 +350,7 @@ mod tests {
         assert_eq!(posting_list.elements[3].weight, 4.0);
         assert_eq!(
             posting_list.elements[3].max_next_weight,
-            DEFAULT_MAX_NEXT_WEIGHT
+            DimWeight::neg_infinity(),
         );
 
         // must update max_next_weight of previous elements if necessary
@@ -394,7 +387,7 @@ mod tests {
         assert_eq!(posting_list.elements[3].weight, 5.0);
         assert_eq!(
             posting_list.elements[3].max_next_weight,
-            DEFAULT_MAX_NEXT_WEIGHT
+            DimWeight::neg_infinity(),
         );
 
         // insert mew last element
@@ -405,7 +398,7 @@ mod tests {
         assert_eq!(posting_list.elements[4].weight, 5.0);
         assert_eq!(
             posting_list.elements[4].max_next_weight,
-            DEFAULT_MAX_NEXT_WEIGHT
+            DimWeight::neg_infinity(),
         );
 
         // new element
@@ -440,7 +433,7 @@ mod tests {
         assert_eq!(posting_list.elements[2].weight, 3.0);
         assert_eq!(
             posting_list.elements[2].max_next_weight,
-            DEFAULT_MAX_NEXT_WEIGHT
+            DimWeight::neg_infinity(),
         );
 
         // increase weight of existing element
@@ -458,7 +451,7 @@ mod tests {
         assert_eq!(posting_list.elements[2].weight, 3.0);
         assert_eq!(
             posting_list.elements[2].max_next_weight,
-            DEFAULT_MAX_NEXT_WEIGHT
+            DimWeight::neg_infinity(),
         );
     }
 }
