@@ -5631,6 +5631,7 @@ dependencies = [
  "io",
  "itertools 0.12.1",
  "log",
+ "macro_rules_attribute",
  "memmap2 0.9.4",
  "memory",
  "ordered-float 4.2.0",

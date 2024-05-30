@@ -86,7 +86,7 @@ memory = { path = "../common/memory" }
 sparse = { path = "../sparse" }
 
 tracing = { workspace = true, optional = true }
-macro_rules_attribute = "0.2.0"
+macro_rules_attribute = { workspace = true }
 generic-tests = "0.1.2"
 nom = "7.1.3"
 half = { version = "2.4.1", features = ["alloc", "serde", "num-traits"] }

@@ -3,14 +3,15 @@ use std::hash::Hash;
 
 use common::types::ScoreType;
 use itertools::Itertools;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError, ValidationErrors};
 
 use crate::common::types::{DimId, DimOffset, Weight};
 
 /// Sparse vector structure
-#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[macro_rules_attribute::macro_rules_derive(common::schemars_rename_generics)]
+#[derive_args(< f32 > => "SparseVector")]
+#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct SparseVector<W> {
     /// Indices must be unique
