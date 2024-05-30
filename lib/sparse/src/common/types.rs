@@ -4,6 +4,8 @@ use common::types::ScoreType;
 
 pub type DimOffset = u32;
 pub type DimId = u32;
+
+#[cfg(feature = "testing")]
 pub type DimWeight = f32;
 
 pub trait Weight: Copy + Debug + Default + PartialEq + PartialOrd + 'static {

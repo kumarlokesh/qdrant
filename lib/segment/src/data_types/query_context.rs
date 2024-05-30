@@ -4,8 +4,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use bitvec::prelude::BitSlice;
-use sparse::common::types::{DimId, DimWeight};
+use sparse::common::types::DimId;
 
+use super::vectors::VectorElementType;
 use crate::data_types::tiny_map;
 
 #[derive(Debug)]
@@ -179,13 +180,13 @@ impl VectorQueryContext<'_> {
     /// Compute advanced formula for Inverse Document Frequency (IDF) according to wikipedia.
     /// This should account for corner cases when `df` and `n` are small or zero.
     #[inline]
-    fn fancy_idf(n: DimWeight, df: DimWeight) -> DimWeight {
+    fn fancy_idf(n: VectorElementType, df: VectorElementType) -> VectorElementType {
         ((n - df + 0.5) / (df + 0.5) + 1.).ln()
     }
 
-    pub fn remap_idf_weights(&self, indices: &[DimId], weights: &mut [DimWeight]) {
+    pub fn remap_idf_weights(&self, indices: &[DimId], weights: &mut [VectorElementType]) {
         // Number of documents
-        let n = self.available_point_count as DimWeight;
+        let n = self.available_point_count as VectorElementType;
         for (weight, index) in weights.iter_mut().zip(indices) {
             // Document frequency
             let df = self
@@ -194,7 +195,7 @@ impl VectorQueryContext<'_> {
                 .copied()
                 .unwrap_or(0);
 
-            *weight *= Self::fancy_idf(n, df as DimWeight);
+            *weight *= Self::fancy_idf(n, df as VectorElementType);
         }
     }
 
