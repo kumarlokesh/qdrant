@@ -5,7 +5,7 @@ use common::types::PointOffsetType;
 
 use super::posting_list_common::PostingListIter;
 use crate::common::sparse_vector::RemappedSparseVector;
-use crate::common::types::DimOffset;
+use crate::common::types::{DimOffset, DimWeight};
 use crate::index::inverted_index::inverted_index_ram::InvertedIndexRam;
 
 pub mod inverted_index_compressed_immutable_ram;
@@ -19,7 +19,7 @@ pub const OLD_INDEX_FILE_NAME: &str = "inverted_index.data";
 pub const INDEX_FILE_NAME: &str = "inverted_index.dat";
 
 pub trait InvertedIndex: Sized {
-    type Iter<'a>: PostingListIter + Clone
+    type Iter<'a>: PostingListIter<DimWeight> + Clone
     where
         Self: 'a;
 

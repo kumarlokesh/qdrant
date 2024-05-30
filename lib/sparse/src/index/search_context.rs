@@ -13,7 +13,7 @@ use crate::index::inverted_index::InvertedIndex;
 use crate::index::posting_list::PostingListIterator;
 
 /// Iterator over posting lists with a reference to the corresponding query index and weight
-pub struct IndexedPostingListIterator<T: PostingListIter> {
+pub struct IndexedPostingListIterator<T: PostingListIter<DimWeight>> {
     posting_list_iterator: T,
     query_index: DimId,
     query_weight: DimWeight,
@@ -22,7 +22,7 @@ pub struct IndexedPostingListIterator<T: PostingListIter> {
 /// Making this larger makes the search faster but uses more (pooled) memory
 const ADVANCE_BATCH_SIZE: usize = 10_000;
 
-pub struct SearchContext<'a, 'b, T: PostingListIter = PostingListIterator<'a>> {
+pub struct SearchContext<'a, 'b, T: PostingListIter<DimWeight> = PostingListIterator<'a>> {
     postings_iterators: Vec<IndexedPostingListIterator<T>>,
     query: RemappedSparseVector,
     top: usize,
@@ -34,7 +34,7 @@ pub struct SearchContext<'a, 'b, T: PostingListIter = PostingListIterator<'a>> {
     use_pruning: bool,
 }
 
-impl<'a, 'b, T: PostingListIter> SearchContext<'a, 'b, T> {
+impl<'a, 'b, T: PostingListIter<DimWeight>> SearchContext<'a, 'b, T> {
     pub fn new(
         query: RemappedSparseVector,
         top: usize,

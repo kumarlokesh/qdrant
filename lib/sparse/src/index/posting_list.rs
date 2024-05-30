@@ -3,8 +3,11 @@ use std::cmp::max;
 use common::types::PointOffsetType;
 use ordered_float::OrderedFloat;
 
-use super::posting_list_common::{PostingElement, PostingElementEx, PostingListIter};
+use super::posting_list_common::PostingListIter;
 use crate::common::types::DimWeight;
+
+type PostingElement = super::posting_list_common::PostingElement<DimWeight>;
+type PostingElementEx = super::posting_list_common::PostingElementEx<DimWeight>;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct PostingList {
@@ -160,7 +163,7 @@ pub struct PostingListIterator<'a> {
     pub current_index: usize,
 }
 
-impl<'a> PostingListIter for PostingListIterator<'a> {
+impl<'a> PostingListIter<DimWeight> for PostingListIterator<'a> {
     #[inline]
     fn peek(&mut self) -> Option<PostingElementEx> {
         self.elements.get(self.current_index).cloned()

@@ -7,7 +7,7 @@ use super::inverted_index_compressed_mmap::InvertedIndexMmap;
 use super::inverted_index_ram::InvertedIndexRam;
 use super::InvertedIndex;
 use crate::common::sparse_vector::RemappedSparseVector;
-use crate::common::types::{DimId, DimOffset};
+use crate::common::types::{DimId, DimOffset, DimWeight};
 use crate::index::compressed_posting_list::{
     CompressedPostingBuilder, CompressedPostingList, CompressedPostingListIterator,
 };
@@ -15,18 +15,18 @@ use crate::index::posting_list_common::PostingListIter as _;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InvertedIndexImmutableRam {
-    pub(super) postings: Vec<CompressedPostingList>,
+    pub(super) postings: Vec<CompressedPostingList<DimWeight>>,
     pub(super) vector_count: usize,
 }
 
 impl InvertedIndexImmutableRam {
-    pub(super) fn into_postings(self) -> Vec<CompressedPostingList> {
+    pub(super) fn into_postings(self) -> Vec<CompressedPostingList<DimWeight>> {
         self.postings
     }
 }
 
 impl InvertedIndex for InvertedIndexImmutableRam {
-    type Iter<'a> = CompressedPostingListIterator<'a>;
+    type Iter<'a> = CompressedPostingListIterator<'a, DimWeight>;
 
     fn open(path: &Path) -> std::io::Result<Self> {
         let mmap_inverted_index = InvertedIndexMmap::load(path)?;

@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::fmt::Debug;
 use std::mem::size_of;
 
 use bitpacking::BitPacker as _;
@@ -7,19 +8,19 @@ use common::types::PointOffsetType;
 use itertools::Itertools as _;
 
 use super::posting_list_common::{PostingElement, PostingElementEx, PostingListIter};
-use crate::common::types::DimWeight;
+use crate::common::types::Weight;
 type BitPackerImpl = bitpacking::BitPacker4x;
 
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct CompressedPostingList {
+pub struct CompressedPostingList<W> {
     /// Compressed ids data. Chunks refer to subslies of this data.
     id_data: Vec<u8>,
 
     /// Fixed-size chunks.
-    chunks: Vec<CompressedPostingChunk>,
+    chunks: Vec<CompressedPostingChunk<W>>,
 
     /// Remainder elements that do not fit into chunks.
-    remainders: Vec<PostingElement>,
+    remainders: Vec<PostingElement<W>>,
 
     /// Id of the last element in the list. Used to avoid unpacking the last chunk.
     last_id: Option<PointOffsetType>,
@@ -27,16 +28,16 @@ pub struct CompressedPostingList {
 
 /// A non-owning view of [`CompressedPostingList`].
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct CompressedPostingListView<'a> {
+pub struct CompressedPostingListView<'a, W> {
     id_data: &'a [u8],
-    chunks: &'a [CompressedPostingChunk],
-    remainders: &'a [PostingElement],
+    chunks: &'a [CompressedPostingChunk<W>],
+    remainders: &'a [PostingElement<W>],
     last_id: Option<PointOffsetType>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 #[repr(C)]
-pub struct CompressedPostingChunk {
+pub struct CompressedPostingChunk<W> {
     /// Initial data point id. Used for decompression.
     initial: PointOffsetType,
 
@@ -44,11 +45,11 @@ pub struct CompressedPostingChunk {
     offset: u32,
 
     /// Weight values for the chunk.
-    weights: [DimWeight; BitPackerImpl::BLOCK_LEN],
+    weights: [W; BitPackerImpl::BLOCK_LEN],
 }
 
-impl CompressedPostingList {
-    pub(super) fn view(&self) -> CompressedPostingListView {
+impl<W: Weight> CompressedPostingList<W> {
+    pub(super) fn view(&self) -> CompressedPostingListView<W> {
         CompressedPostingListView {
             id_data: &self.id_data,
             chunks: &self.chunks,
@@ -57,12 +58,12 @@ impl CompressedPostingList {
         }
     }
 
-    pub fn iter(&self) -> CompressedPostingListIterator {
+    pub fn iter(&self) -> CompressedPostingListIterator<W> {
         self.view().iter()
     }
 
     #[cfg(test)]
-    pub fn from(records: Vec<(PointOffsetType, DimWeight)>) -> CompressedPostingList {
+    pub fn from(records: Vec<(PointOffsetType, W)>) -> CompressedPostingList<W> {
         let mut posting_list = CompressedPostingBuilder::new();
         for (id, weight) in records {
             posting_list.add(id, weight);
@@ -71,29 +72,33 @@ impl CompressedPostingList {
     }
 }
 
+// TODO: rethink of what fields we need
 pub struct CompressedPostingListStoreSize {
     pub id_data_bytes: usize,
     pub chunks_count: usize,
     pub remainders_count: usize,
+
+    pub sizeof_chunk: usize,
+    pub sizeof_remainder: usize,
 }
 
 impl CompressedPostingListStoreSize {
     pub fn total(&self) -> usize {
         self.id_data_bytes
-            + self.chunks_count * size_of::<CompressedPostingChunk>()
-            + self.remainders_count * size_of::<PostingElement>()
+            + self.chunks_count * self.sizeof_chunk
+            + self.remainders_count * self.sizeof_remainder
     }
 
     pub fn chunks_bytes(&self) -> usize {
-        self.chunks_count * size_of::<CompressedPostingChunk>()
+        self.chunks_count * self.sizeof_chunk
     }
 }
 
-impl<'a> CompressedPostingListView<'a> {
+impl<'a, W: Weight> CompressedPostingListView<'a, W> {
     pub(super) fn new(
         id_data: &'a [u8],
-        chunks: &'a [CompressedPostingChunk],
-        remainders: &'a [PostingElement],
+        chunks: &'a [CompressedPostingChunk<W>],
+        remainders: &'a [PostingElement<W>],
         last_id: Option<PointOffsetType>,
     ) -> Self {
         CompressedPostingListView {
@@ -104,7 +109,13 @@ impl<'a> CompressedPostingListView<'a> {
         }
     }
 
-    pub(super) fn parts(&self) -> (&'a [u8], &'a [CompressedPostingChunk], &'a [PostingElement]) {
+    pub(super) fn parts(
+        &self,
+    ) -> (
+        &'a [u8],
+        &'a [CompressedPostingChunk<W>],
+        &'a [PostingElement<W>],
+    ) {
         (self.id_data, self.chunks, self.remainders)
     }
 
@@ -117,10 +128,13 @@ impl<'a> CompressedPostingListView<'a> {
             id_data_bytes: self.id_data.len(),
             chunks_count: self.chunks.len(),
             remainders_count: self.remainders.len(),
+
+            sizeof_chunk: size_of::<CompressedPostingChunk<W>>(),
+            sizeof_remainder: size_of::<PostingElement<W>>(),
         }
     }
 
-    pub fn to_owned(&self) -> CompressedPostingList {
+    pub fn to_owned(&self) -> CompressedPostingList<W> {
         CompressedPostingList {
             id_data: self.id_data.to_vec(),
             chunks: self.chunks.to_vec(),
@@ -153,7 +167,11 @@ impl<'a> CompressedPostingListView<'a> {
         );
     }
 
-    fn get_chunk_size(chunks: &[CompressedPostingChunk], data: &[u8], chunk_index: usize) -> usize {
+    fn get_chunk_size(
+        chunks: &[CompressedPostingChunk<W>],
+        data: &[u8],
+        chunk_index: usize,
+    ) -> usize {
         if chunk_index + 1 < chunks.len() {
             chunks[chunk_index + 1].offset as usize - chunks[chunk_index].offset as usize
         } else {
@@ -161,27 +179,29 @@ impl<'a> CompressedPostingListView<'a> {
         }
     }
 
-    pub fn iter(&self) -> CompressedPostingListIterator<'a> {
+    pub fn iter(&self) -> CompressedPostingListIterator<'a, W> {
         CompressedPostingListIterator::new(self)
     }
 }
 
-#[derive(Default)]
-pub struct CompressedPostingBuilder {
-    elements: Vec<PostingElement>,
+pub struct CompressedPostingBuilder<W> {
+    elements: Vec<PostingElement<W>>,
 }
 
-impl CompressedPostingBuilder {
+impl<W: Weight> CompressedPostingBuilder<W> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        Default::default()
+        CompressedPostingBuilder {
+            elements: Vec::new(),
+        }
     }
 
     /// Add a new record to the posting list.
-    pub fn add(&mut self, record_id: PointOffsetType, weight: DimWeight) {
+    pub fn add(&mut self, record_id: PointOffsetType, weight: W) {
         self.elements.push(PostingElement { record_id, weight });
     }
 
-    pub fn build(mut self) -> CompressedPostingList {
+    pub fn build(mut self) -> CompressedPostingList<W> {
         self.elements.sort_unstable_by_key(|e| e.record_id);
 
         // Check for duplicates
@@ -252,8 +272,8 @@ impl CompressedPostingBuilder {
 }
 
 #[derive(Clone)]
-pub struct CompressedPostingListIterator<'a> {
-    list: CompressedPostingListView<'a>,
+pub struct CompressedPostingListIterator<'a, W> {
+    list: CompressedPostingListView<'a, W>,
 
     /// If true, then `decompressed_chunk` contains the unpacked chunk for the current position.
     unpacked: bool,
@@ -263,10 +283,10 @@ pub struct CompressedPostingListIterator<'a> {
     pos: usize,
 }
 
-impl<'a> CompressedPostingListIterator<'a> {
+impl<'a, W: Weight> CompressedPostingListIterator<'a, W> {
     #[inline]
-    fn new(list: &CompressedPostingListView<'a>) -> CompressedPostingListIterator<'a> {
-        CompressedPostingListIterator {
+    fn new(list: &CompressedPostingListView<'a, W>) -> Self {
+        Self {
             list: list.clone(),
             unpacked: false,
             decompressed_chunk: [0; BitPackerImpl::BLOCK_LEN],
@@ -275,7 +295,7 @@ impl<'a> CompressedPostingListIterator<'a> {
     }
 
     #[inline]
-    fn next(&mut self) -> Option<PostingElement> {
+    fn next(&mut self) -> Option<PostingElement<W>> {
         let result = self.peek()?;
 
         if self.pos / BitPackerImpl::BLOCK_LEN < self.list.chunks.len() {
@@ -291,9 +311,9 @@ impl<'a> CompressedPostingListIterator<'a> {
     }
 }
 
-impl<'a> PostingListIter for CompressedPostingListIterator<'a> {
+impl<'a, W: Weight> PostingListIter<W> for CompressedPostingListIterator<'a, W> {
     #[inline]
-    fn peek(&mut self) -> Option<PostingElementEx> {
+    fn peek(&mut self) -> Option<PostingElementEx<W>> {
         let pos = self.pos;
         if pos / BitPackerImpl::BLOCK_LEN < self.list.chunks.len() {
             if !self.unpacked {
@@ -306,7 +326,7 @@ impl<'a> PostingListIter for CompressedPostingListIterator<'a> {
             return Some(PostingElementEx {
                 record_id: self.decompressed_chunk[pos % BitPackerImpl::BLOCK_LEN],
                 weight: chunk.weights[pos % BitPackerImpl::BLOCK_LEN],
-                max_next_weight: 0.0,
+                max_next_weight: Default::default(),
             });
         }
 
@@ -316,7 +336,7 @@ impl<'a> PostingListIter for CompressedPostingListIterator<'a> {
             .map(|e| PostingElementEx {
                 record_id: e.record_id,
                 weight: e.weight,
-                max_next_weight: 0.0,
+                max_next_weight: Default::default(),
             })
     }
 
@@ -326,7 +346,7 @@ impl<'a> PostingListIter for CompressedPostingListIterator<'a> {
     }
 
     #[inline]
-    fn skip_to(&mut self, record_id: PointOffsetType) -> Option<PostingElementEx> {
+    fn skip_to(&mut self, record_id: PointOffsetType) -> Option<PostingElementEx<W>> {
         // TODO: optimize
         while let Some(e) = self.peek() {
             match e.record_id.cmp(&record_id) {
@@ -360,7 +380,7 @@ impl<'a> PostingListIter for CompressedPostingListIterator<'a> {
         &mut self,
         id: PointOffsetType,
         ctx: &mut Ctx,
-        mut f: impl FnMut(&mut Ctx, PointOffsetType, DimWeight),
+        mut f: impl FnMut(&mut Ctx, PointOffsetType, W),
     ) {
         let mut pos = self.pos;
         if pos / BitPackerImpl::BLOCK_LEN < self.list.chunks.len() {
@@ -423,16 +443,16 @@ impl<'a> PostingListIter for CompressedPostingListIterator<'a> {
         false
     }
 
-    fn into_std_iter(self) -> impl Iterator<Item = PostingElement> {
+    fn into_std_iter(self) -> impl Iterator<Item = PostingElement<W>> {
         CompressedPostingListStdIterator(self)
     }
 }
 
 #[derive(Clone)]
-pub struct CompressedPostingListStdIterator<'a>(CompressedPostingListIterator<'a>);
+pub struct CompressedPostingListStdIterator<'a, W>(CompressedPostingListIterator<'a, W>);
 
-impl Iterator for CompressedPostingListStdIterator<'_> {
-    type Item = PostingElement;
+impl<W: Weight> Iterator for CompressedPostingListStdIterator<'_, W> {
+    type Item = PostingElement<W>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
@@ -442,6 +462,7 @@ impl Iterator for CompressedPostingListStdIterator<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::common::types::DimWeight;
 
     const CASES: [usize; 6] = [0, 64, 128, 192, 256, 320];
 

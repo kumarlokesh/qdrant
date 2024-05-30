@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::INDEX_FILE_NAME;
 use crate::common::sparse_vector::RemappedSparseVector;
-use crate::common::types::{DimId, DimOffset};
+use crate::common::types::{DimId, DimOffset, DimWeight};
 use crate::index::inverted_index::inverted_index_ram::InvertedIndexRam;
 use crate::index::inverted_index::InvertedIndex;
 use crate::index::posting_list::PostingListIterator;
@@ -106,7 +106,7 @@ impl InvertedIndexMmap {
         path.join(INDEX_CONFIG_FILE_NAME)
     }
 
-    pub fn get(&self, id: &DimId) -> Option<&[PostingElementEx]> {
+    pub fn get(&self, id: &DimId) -> Option<&[PostingElementEx<DimWeight>]> {
         // check that the id is not out of bounds (posting_count includes the empty zeroth entry)
         if *id >= self.file_header.posting_count as DimId {
             return None;
@@ -183,7 +183,8 @@ impl InvertedIndexMmap {
     fn total_posting_elements_size(inverted_index_ram: &InvertedIndexRam) -> usize {
         let mut total_posting_elements_size = 0;
         for posting in &inverted_index_ram.postings {
-            total_posting_elements_size += posting.elements.len() * size_of::<PostingElementEx>();
+            total_posting_elements_size +=
+                posting.elements.len() * size_of::<PostingElementEx<DimWeight>>();
         }
 
         total_posting_elements_size
@@ -196,7 +197,8 @@ impl InvertedIndexMmap {
     ) {
         let mut elements_offset: usize = total_posting_headers_size;
         for (id, posting) in inverted_index_ram.postings.iter().enumerate() {
-            let posting_elements_size = posting.elements.len() * size_of::<PostingElementEx>();
+            let posting_elements_size =
+                posting.elements.len() * size_of::<PostingElementEx<DimWeight>>();
             let posting_header = PostingListFileHeader {
                 start_offset: elements_offset as u64,
                 end_offset: (elements_offset + posting_elements_size) as u64,

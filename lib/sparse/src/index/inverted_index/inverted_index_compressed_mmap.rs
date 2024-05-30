@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use super::inverted_index_compressed_immutable_ram::InvertedIndexImmutableRam;
 use super::INDEX_FILE_NAME;
 use crate::common::sparse_vector::RemappedSparseVector;
-use crate::common::types::{DimId, DimOffset};
+use crate::common::types::{DimId, DimOffset, DimWeight};
 use crate::index::compressed_posting_list::{
     CompressedPostingChunk, CompressedPostingListIterator, CompressedPostingListView,
 };
@@ -51,7 +51,7 @@ struct PostingListFileHeader {
 }
 
 impl InvertedIndex for InvertedIndexMmap {
-    type Iter<'a> = CompressedPostingListIterator<'a>;
+    type Iter<'a> = CompressedPostingListIterator<'a, DimWeight>;
 
     fn open(path: &Path) -> std::io::Result<Self> {
         Self::load(path)
@@ -62,7 +62,7 @@ impl InvertedIndex for InvertedIndexMmap {
         Ok(())
     }
 
-    fn get<'a>(&'a self, id: &DimId) -> Option<CompressedPostingListIterator<'a>> {
+    fn get<'a>(&'a self, id: &DimId) -> Option<CompressedPostingListIterator<'a, DimWeight>> {
         self.get(id).map(|posting_list| posting_list.iter())
     }
 
@@ -114,7 +114,7 @@ impl InvertedIndexMmap {
         path.join(INDEX_CONFIG_FILE_NAME)
     }
 
-    pub fn get<'a>(&'a self, id: &DimId) -> Option<CompressedPostingListView<'a>> {
+    pub fn get<'a>(&'a self, id: &DimId) -> Option<CompressedPostingListView<'a, DimWeight>> {
         // check that the id is not out of bounds (posting_count includes the empty zeroth entry)
         if *id >= self.file_header.posting_count as DimId {
             return None;
@@ -126,7 +126,7 @@ impl InvertedIndexMmap {
 
         let remainders_start = header.ids_start
             + header.ids_len as u64
-            + header.chunks_count as u64 * size_of::<CompressedPostingChunk>() as u64;
+            + header.chunks_count as u64 * size_of::<CompressedPostingChunk<DimWeight>>() as u64;
 
         let remainders_end = if *id + 1 < self.file_header.posting_count as DimId {
             self.slice_part::<PostingListFileHeader>(
@@ -140,7 +140,9 @@ impl InvertedIndexMmap {
 
         if remainders_end
             .checked_sub(remainders_start)
-            .map_or(false, |len| len % size_of::<PostingElement>() as u64 != 0)
+            .map_or(false, |len| {
+                len % size_of::<PostingElement<DimWeight>>() as u64 != 0
+            })
         {
             return None;
         }
