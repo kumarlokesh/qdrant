@@ -1,6 +1,9 @@
 use std::fmt::Debug;
 
 use common::types::ScoreType;
+use half::f16;
+#[cfg(feature = "testing")]
+use num_traits::cast::AsPrimitive;
 
 pub type DimOffset = u32;
 pub type DimId = u32;
@@ -47,5 +50,25 @@ impl Weight for f32 {
     #[cfg(feature = "testing")]
     fn from_f64(value: f64) -> Self {
         value as f32
+    }
+}
+
+impl Weight for f16 {
+    fn score(self, other: Self) -> ScoreType {
+        ScoreType::from(self) * ScoreType::from(other)
+    }
+
+    fn neg_infinity() -> Self {
+        f16::NEG_INFINITY
+    }
+
+    #[cfg(feature = "testing")]
+    fn abs(self) -> Self {
+        num_traits::Float::abs(self)
+    }
+
+    #[cfg(feature = "testing")]
+    fn from_f64(value: f64) -> Self {
+        value.as_()
     }
 }
