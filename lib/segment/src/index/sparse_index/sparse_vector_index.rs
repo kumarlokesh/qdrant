@@ -39,7 +39,7 @@ use crate::vector_storage::{
     check_deleted_condition, new_stoppable_raw_scorer, VectorStorage, VectorStorageEnum,
 };
 
-pub struct SparseVectorIndex<TInvertedIndex: InvertedIndex> {
+pub struct SparseVectorIndex<TInvertedIndex: InvertedIndex<VectorElementType>> {
     config: SparseIndexConfig,
     id_tracker: Arc<AtomicRefCell<IdTrackerSS>>,
     vector_storage: Arc<AtomicRefCell<VectorStorageEnum>>,
@@ -53,7 +53,7 @@ pub struct SparseVectorIndex<TInvertedIndex: InvertedIndex> {
 
 /// Getters for internals, used for testing.
 #[cfg(feature = "testing")]
-impl<TInvertedIndex: InvertedIndex> SparseVectorIndex<TInvertedIndex> {
+impl<TInvertedIndex: InvertedIndex<VectorElementType>> SparseVectorIndex<TInvertedIndex> {
     pub fn config(&self) -> SparseIndexConfig {
         self.config
     }
@@ -79,7 +79,7 @@ impl<TInvertedIndex: InvertedIndex> SparseVectorIndex<TInvertedIndex> {
     }
 }
 
-impl<TInvertedIndex: InvertedIndex> SparseVectorIndex<TInvertedIndex> {
+impl<TInvertedIndex: InvertedIndex<VectorElementType>> SparseVectorIndex<TInvertedIndex> {
     /// Open a sparse vector index at a given path
     pub fn open(
         config: SparseIndexConfig,
@@ -493,7 +493,9 @@ impl<TInvertedIndex: InvertedIndex> SparseVectorIndex<TInvertedIndex> {
     }
 }
 
-impl<TInvertedIndex: InvertedIndex> VectorIndex for SparseVectorIndex<TInvertedIndex> {
+impl<TInvertedIndex: InvertedIndex<VectorElementType>> VectorIndex
+    for SparseVectorIndex<TInvertedIndex>
+{
     fn search(
         &self,
         vectors: &[&QueryVector],

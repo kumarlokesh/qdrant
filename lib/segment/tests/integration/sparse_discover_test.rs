@@ -166,7 +166,7 @@ fn sparse_index_discover_test() {
     let payload_index_ptr = sparse_segment.payload_index.clone();
 
     let vector_storage = &sparse_segment.vector_data[SPARSE_VECTOR_NAME].vector_storage;
-    let mut sparse_index = SparseVectorIndex::<InvertedIndexImmutableRam>::open(
+    let mut sparse_index = SparseVectorIndex::<InvertedIndexImmutableRam<VectorElementType>>::open(
         SparseIndexConfig {
             full_scan_threshold: Some(DEFAULT_SPARSE_FULL_SCAN_THRESHOLD),
             index_type: SparseIndexType::ImmutableRam,

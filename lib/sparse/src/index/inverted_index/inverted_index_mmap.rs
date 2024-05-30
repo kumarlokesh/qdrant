@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::INDEX_FILE_NAME;
 use crate::common::sparse_vector::RemappedSparseVector;
-use crate::common::types::{DimId, DimOffset, DimWeight};
+use crate::common::types::{DimId, DimOffset, Weight};
 use crate::index::inverted_index::inverted_index_ram::InvertedIndexRam;
 use crate::index::inverted_index::InvertedIndex;
 use crate::index::posting_list::PostingListIterator;
@@ -31,10 +31,11 @@ pub struct InvertedIndexFileHeader {
 }
 
 /// Inverted flatten index from dimension id to posting list
-pub struct InvertedIndexMmap {
+pub struct InvertedIndexMmap<W> {
     path: PathBuf,
     mmap: Arc<Mmap>,
     pub file_header: InvertedIndexFileHeader,
+    _phantom: std::marker::PhantomData<W>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -43,8 +44,8 @@ struct PostingListFileHeader {
     pub end_offset: u64,
 }
 
-impl InvertedIndex for InvertedIndexMmap {
-    type Iter<'a> = PostingListIterator<'a, DimWeight>;
+impl<W: Weight> InvertedIndex<W> for InvertedIndexMmap<W> {
+    type Iter<'a> = PostingListIterator<'a, W>;
 
     fn open(path: &Path) -> std::io::Result<Self> {
         Self::load(path)
@@ -55,7 +56,7 @@ impl InvertedIndex for InvertedIndexMmap {
         Ok(())
     }
 
-    fn get(&self, id: &DimId) -> Option<PostingListIterator<DimWeight>> {
+    fn get(&self, id: &DimId) -> Option<PostingListIterator<W>> {
         self.get(id).map(PostingListIterator::new)
     }
 
@@ -74,12 +75,12 @@ impl InvertedIndex for InvertedIndexMmap {
         ]
     }
 
-    fn upsert(&mut self, _id: PointOffsetType, _vector: RemappedSparseVector<DimWeight>) {
+    fn upsert(&mut self, _id: PointOffsetType, _vector: RemappedSparseVector<W>) {
         panic!("Cannot upsert into a read-only Mmap inverted index")
     }
 
     fn from_ram_index<P: AsRef<Path>>(
-        ram_index: Cow<InvertedIndexRam>,
+        ram_index: Cow<InvertedIndexRam<W>>,
         path: P,
     ) -> std::io::Result<Self> {
         Self::convert_and_save(&ram_index, path)
@@ -97,7 +98,7 @@ impl InvertedIndex for InvertedIndexMmap {
     }
 }
 
-impl InvertedIndexMmap {
+impl<W: Weight> InvertedIndexMmap<W> {
     pub fn index_file_path(path: &Path) -> PathBuf {
         path.join(INDEX_FILE_NAME)
     }
@@ -106,7 +107,7 @@ impl InvertedIndexMmap {
         path.join(INDEX_CONFIG_FILE_NAME)
     }
 
-    pub fn get(&self, id: &DimId) -> Option<&[PostingElementEx<DimWeight>]> {
+    pub fn get(&self, id: &DimId) -> Option<&[PostingElementEx<W>]> {
         // check that the id is not out of bounds (posting_count includes the empty zeroth entry)
         if *id >= self.file_header.posting_count as DimId {
             return None;
@@ -121,7 +122,7 @@ impl InvertedIndexMmap {
     }
 
     pub fn convert_and_save<P: AsRef<Path>>(
-        inverted_index_ram: &InvertedIndexRam,
+        inverted_index_ram: &InvertedIndexRam<W>,
         path: P,
     ) -> std::io::Result<Self> {
         let total_posting_headers_size = Self::total_posting_headers_size(inverted_index_ram);
@@ -157,6 +158,7 @@ impl InvertedIndexMmap {
             path: path.as_ref().to_owned(),
             mmap: Arc::new(mmap.make_read_only()?),
             file_header,
+            _phantom: std::marker::PhantomData,
         })
     }
 
@@ -173,18 +175,19 @@ impl InvertedIndexMmap {
             path: path.as_ref().to_owned(),
             mmap: Arc::new(mmap),
             file_header,
+            _phantom: std::marker::PhantomData,
         })
     }
 
-    fn total_posting_headers_size(inverted_index_ram: &InvertedIndexRam) -> usize {
+    fn total_posting_headers_size(inverted_index_ram: &InvertedIndexRam<W>) -> usize {
         inverted_index_ram.postings.len() * POSTING_HEADER_SIZE
     }
 
-    fn total_posting_elements_size(inverted_index_ram: &InvertedIndexRam) -> usize {
+    fn total_posting_elements_size(inverted_index_ram: &InvertedIndexRam<W>) -> usize {
         let mut total_posting_elements_size = 0;
         for posting in &inverted_index_ram.postings {
             total_posting_elements_size +=
-                posting.elements.len() * size_of::<PostingElementEx<DimWeight>>();
+                posting.elements.len() * size_of::<PostingElementEx<W>>();
         }
 
         total_posting_elements_size
@@ -192,13 +195,12 @@ impl InvertedIndexMmap {
 
     fn save_posting_headers(
         mmap: &mut MmapMut,
-        inverted_index_ram: &InvertedIndexRam,
+        inverted_index_ram: &InvertedIndexRam<W>,
         total_posting_headers_size: usize,
     ) {
         let mut elements_offset: usize = total_posting_headers_size;
         for (id, posting) in inverted_index_ram.postings.iter().enumerate() {
-            let posting_elements_size =
-                posting.elements.len() * size_of::<PostingElementEx<DimWeight>>();
+            let posting_elements_size = posting.elements.len() * size_of::<PostingElementEx<W>>();
             let posting_header = PostingListFileHeader {
                 start_offset: elements_offset as u64,
                 end_offset: (elements_offset + posting_elements_size) as u64,
@@ -215,7 +217,7 @@ impl InvertedIndexMmap {
 
     fn save_posting_elements(
         mmap: &mut MmapMut,
-        inverted_index_ram: &InvertedIndexRam,
+        inverted_index_ram: &InvertedIndexRam<W>,
         total_posting_headers_size: usize,
     ) {
         let mut offset = total_posting_headers_size;
@@ -236,9 +238,9 @@ mod tests {
     use super::*;
     use crate::index::inverted_index::inverted_index_ram_builder::InvertedIndexBuilder;
 
-    fn compare_indexes(
-        inverted_index_ram: &InvertedIndexRam,
-        inverted_index_mmap: &InvertedIndexMmap,
+    fn compare_indexes<W: Weight>(
+        inverted_index_ram: &InvertedIndexRam<W>,
+        inverted_index_mmap: &InvertedIndexMmap<W>,
     ) {
         for id in 0..inverted_index_ram.postings.len() as DimId {
             let posting_list_ram = inverted_index_ram.get(&id).unwrap().elements.as_slice();

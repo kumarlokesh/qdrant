@@ -86,7 +86,7 @@ pub fn bench_movies(c: &mut Criterion) {
 pub fn run_bench(
     c: &mut Criterion,
     name: &str,
-    index: InvertedIndexRam,
+    index: InvertedIndexRam<DimWeight>,
     query_vectors: &[SparseVector<DimWeight>],
 ) {
     let hottest_id = index
@@ -170,7 +170,7 @@ pub fn run_bench(
 
 fn run_bench2(
     mut group: criterion::BenchmarkGroup<'_, impl Measurement>,
-    index: &impl InvertedIndex,
+    index: &impl InvertedIndex<DimWeight>,
     query_vectors: &[SparseVector<DimWeight>],
     hottest_query_vectors: &[RemappedSparseVector<DimWeight>],
 ) {
@@ -196,7 +196,7 @@ fn run_bench2(
     });
 }
 
-fn load_csr_index(path: impl AsRef<Path>, ratio: f32) -> io::Result<InvertedIndexRam> {
+fn load_csr_index(path: impl AsRef<Path>, ratio: f32) -> io::Result<InvertedIndexRam<DimWeight>> {
     let csr = Csr::open(path.as_ref())?;
     let mut builder = InvertedIndexBuilder::new();
     assert!(ratio > 0.0 && ratio <= 1.0);

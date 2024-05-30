@@ -6,7 +6,7 @@ pub type DimOffset = u32;
 pub type DimId = u32;
 pub type DimWeight = f32;
 
-pub trait Weight: Copy + Debug + Default + PartialEq + PartialOrd {
+pub trait Weight: Copy + Debug + Default + PartialEq + PartialOrd + 'static {
     fn score(self, other: Self) -> ScoreType;
 
     // Used as default max_next_weight.

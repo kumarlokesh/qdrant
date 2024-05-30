@@ -5,7 +5,7 @@ use common::types::PointOffsetType;
 
 use super::posting_list_common::PostingListIter;
 use crate::common::sparse_vector::RemappedSparseVector;
-use crate::common::types::{DimOffset, DimWeight};
+use crate::common::types::DimOffset;
 use crate::index::inverted_index::inverted_index_ram::InvertedIndexRam;
 
 pub mod inverted_index_compressed_immutable_ram;
@@ -18,10 +18,11 @@ pub mod inverted_index_ram_builder;
 pub const OLD_INDEX_FILE_NAME: &str = "inverted_index.data";
 pub const INDEX_FILE_NAME: &str = "inverted_index.dat";
 
-pub trait InvertedIndex: Sized {
-    type Iter<'a>: PostingListIter<DimWeight> + Clone
+pub trait InvertedIndex<W: Copy>: Sized {
+    type Iter<'a>: PostingListIter<W> + Clone
     where
-        Self: 'a;
+        Self: 'a,
+        W: 'static;
 
     /// Open existing index based on path
     fn open(path: &Path) -> std::io::Result<Self>;
@@ -47,11 +48,11 @@ pub trait InvertedIndex: Sized {
     fn files(path: &Path) -> Vec<PathBuf>;
 
     /// Upsert a vector into the inverted index.
-    fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector<DimWeight>);
+    fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector<W>);
 
     /// Create inverted index from ram index
     fn from_ram_index<P: AsRef<Path>>(
-        ram_index: Cow<InvertedIndexRam>,
+        ram_index: Cow<InvertedIndexRam<W>>,
         path: P,
     ) -> std::io::Result<Self>;
 

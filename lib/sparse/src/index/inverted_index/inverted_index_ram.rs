@@ -5,24 +5,24 @@ use std::path::{Path, PathBuf};
 use common::types::PointOffsetType;
 
 use crate::common::sparse_vector::RemappedSparseVector;
-use crate::common::types::{DimId, DimWeight};
+use crate::common::types::{DimId, Weight};
 use crate::index::inverted_index::InvertedIndex;
 use crate::index::posting_list::{PostingList, PostingListIterator};
 use crate::index::posting_list_common::PostingElementEx;
 
 /// Inverted flatten index from dimension id to posting list
 #[derive(Debug, Clone, PartialEq)]
-pub struct InvertedIndexRam {
+pub struct InvertedIndexRam<W> {
     /// Posting lists for each dimension flattened (dimension id -> posting list)
     /// Gaps are filled with empty posting lists
-    pub postings: Vec<PostingList<DimWeight>>,
+    pub postings: Vec<PostingList<W>>,
     /// Number of unique indexed vectors
     /// pre-computed on build and upsert to avoid having to traverse the posting lists.
     pub vector_count: usize,
 }
 
-impl InvertedIndex for InvertedIndexRam {
-    type Iter<'a> = PostingListIterator<'a, DimWeight>;
+impl<W: Weight> InvertedIndex<W> for InvertedIndexRam<W> {
+    type Iter<'a> = PostingListIterator<'a, W>;
 
     fn open(_path: &Path) -> std::io::Result<Self> {
         panic!("InvertedIndexRam is not supposed to be loaded");
@@ -32,7 +32,7 @@ impl InvertedIndex for InvertedIndexRam {
         panic!("InvertedIndexRam is not supposed to be saved");
     }
 
-    fn get(&self, id: &DimId) -> Option<PostingListIterator<DimWeight>> {
+    fn get(&self, id: &DimId) -> Option<PostingListIterator<W>> {
         self.get(id).map(|posting_list| posting_list.iter())
     }
 
@@ -48,12 +48,12 @@ impl InvertedIndex for InvertedIndexRam {
         Vec::new()
     }
 
-    fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector<DimWeight>) {
+    fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector<W>) {
         self.upsert(id, vector);
     }
 
     fn from_ram_index<P: AsRef<Path>>(
-        ram_index: Cow<InvertedIndexRam>,
+        ram_index: Cow<InvertedIndexRam<W>>,
         _path: P,
     ) -> std::io::Result<Self> {
         Ok(ram_index.into_owned())
@@ -71,9 +71,9 @@ impl InvertedIndex for InvertedIndexRam {
     }
 }
 
-impl InvertedIndexRam {
+impl<W: Weight> InvertedIndexRam<W> {
     /// New empty inverted index
-    pub fn empty() -> InvertedIndexRam {
+    pub fn empty() -> Self {
         InvertedIndexRam {
             postings: Vec::new(),
             vector_count: 0,
@@ -81,12 +81,12 @@ impl InvertedIndexRam {
     }
 
     /// Get posting list for dimension id
-    pub fn get(&self, id: &DimId) -> Option<&PostingList<DimWeight>> {
+    pub fn get(&self, id: &DimId) -> Option<&PostingList<W>> {
         self.postings.get((*id) as usize)
     }
 
     /// Upsert a vector into the inverted index.
-    pub fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector<DimWeight>) {
+    pub fn upsert(&mut self, id: PointOffsetType, vector: RemappedSparseVector<W>) {
         for (dim_id, weight) in vector.indices.into_iter().zip(vector.values.into_iter()) {
             let dim_id = dim_id as usize;
             match self.postings.get_mut(dim_id) {
@@ -112,6 +112,7 @@ impl InvertedIndexRam {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::common::types::DimWeight;
     use crate::index::inverted_index::inverted_index_ram_builder::InvertedIndexBuilder;
 
     #[test]

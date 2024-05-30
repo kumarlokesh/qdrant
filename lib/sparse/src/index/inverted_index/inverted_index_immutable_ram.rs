@@ -7,18 +7,18 @@ use super::inverted_index_mmap::InvertedIndexMmap;
 use super::inverted_index_ram::InvertedIndexRam;
 use super::InvertedIndex;
 use crate::common::sparse_vector::RemappedSparseVector;
-use crate::common::types::{DimId, DimOffset, DimWeight};
+use crate::common::types::{DimId, DimOffset, Weight};
 use crate::index::posting_list::{PostingList, PostingListIterator};
 
 /// A wrapper around [`InvertedIndexRam`].
 /// Will be replaced with the new compressed implementation eventually.
 #[derive(Debug, Clone, PartialEq)]
-pub struct InvertedIndexImmutableRam {
-    inner: InvertedIndexRam,
+pub struct InvertedIndexImmutableRam<W> {
+    inner: InvertedIndexRam<W>,
 }
 
-impl InvertedIndex for InvertedIndexImmutableRam {
-    type Iter<'a> = PostingListIterator<'a, DimWeight>;
+impl<W: Weight> InvertedIndex<W> for InvertedIndexImmutableRam<W> {
+    type Iter<'a> = PostingListIterator<'a, W>;
 
     fn open(path: &Path) -> std::io::Result<Self> {
         let mmap_inverted_index = InvertedIndexMmap::load(path)?;
@@ -49,7 +49,7 @@ impl InvertedIndex for InvertedIndexImmutableRam {
         Ok(())
     }
 
-    fn get(&self, id: &DimOffset) -> Option<PostingListIterator<DimWeight>> {
+    fn get(&self, id: &DimOffset) -> Option<PostingListIterator<W>> {
         InvertedIndex::get(&self.inner, id)
     }
 
@@ -62,15 +62,15 @@ impl InvertedIndex for InvertedIndexImmutableRam {
     }
 
     fn files(path: &Path) -> Vec<std::path::PathBuf> {
-        InvertedIndexMmap::files(path)
+        InvertedIndexMmap::<W>::files(path)
     }
 
-    fn upsert(&mut self, _id: PointOffsetType, _vector: RemappedSparseVector<DimWeight>) {
+    fn upsert(&mut self, _id: PointOffsetType, _vector: RemappedSparseVector<W>) {
         panic!("Cannot upsert into a read-only RAM inverted index")
     }
 
     fn from_ram_index<P: AsRef<Path>>(
-        ram_index: Cow<InvertedIndexRam>,
+        ram_index: Cow<InvertedIndexRam<W>>,
         _path: P,
     ) -> std::io::Result<Self> {
         Ok(InvertedIndexImmutableRam {

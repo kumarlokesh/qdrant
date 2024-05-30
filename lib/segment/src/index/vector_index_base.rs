@@ -14,7 +14,7 @@ use super::plain_payload_index::PlainIndex;
 use super::sparse_index::sparse_vector_index::SparseVectorIndex;
 use crate::common::operation_error::OperationResult;
 use crate::data_types::query_context::VectorQueryContext;
-use crate::data_types::vectors::{QueryVector, VectorRef};
+use crate::data_types::vectors::{QueryVector, VectorElementType, VectorRef};
 use crate::telemetry::VectorIndexSearchesTelemetry;
 use crate::types::{Filter, SearchParams};
 
@@ -58,9 +58,9 @@ pub enum VectorIndexEnum {
     Plain(PlainIndex),
     HnswRam(HNSWIndex<GraphLinksRam>),
     HnswMmap(HNSWIndex<GraphLinksMmap>),
-    SparseRam(SparseVectorIndex<InvertedIndexRam>),
-    SparseImmutableRam(SparseVectorIndex<InvertedIndexImmutableRam>),
-    SparseMmap(SparseVectorIndex<InvertedIndexMmap>),
+    SparseRam(SparseVectorIndex<InvertedIndexRam<VectorElementType>>),
+    SparseImmutableRam(SparseVectorIndex<InvertedIndexImmutableRam<VectorElementType>>),
+    SparseMmap(SparseVectorIndex<InvertedIndexMmap<VectorElementType>>),
 }
 
 impl VectorIndexEnum {

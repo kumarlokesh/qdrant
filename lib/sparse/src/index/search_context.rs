@@ -39,7 +39,7 @@ impl<'a, 'b, T: PostingListIter<DimWeight>> SearchContext<'a, 'b, T> {
     pub fn new(
         query: RemappedSparseVector<DimWeight>,
         top: usize,
-        inverted_index: &'a impl InvertedIndex<Iter<'a> = T>,
+        inverted_index: &'a impl InvertedIndex<DimWeight, Iter<'a> = T>,
         pooled: PooledScoresHandle<'b>,
         is_stopped: &'a AtomicBool,
     ) -> SearchContext<'a, 'b, T> {
@@ -420,7 +420,7 @@ mod tests {
         true
     }
 
-    fn _search_test(inverted_index: &impl InvertedIndex) {
+    fn _search_test(inverted_index: &impl InvertedIndex<DimWeight>) {
         let is_stopped = AtomicBool::new(false);
         let mut search_context = SearchContext::new(
             RemappedSparseVector {
@@ -554,7 +554,7 @@ mod tests {
         );
     }
 
-    fn _search_with_hot_key_test(inverted_index: &impl InvertedIndex) {
+    fn _search_with_hot_key_test(inverted_index: &impl InvertedIndex<DimWeight>) {
         let is_stopped = AtomicBool::new(false);
         let mut search_context = SearchContext::new(
             RemappedSparseVector {
@@ -752,7 +752,7 @@ mod tests {
         rnd_gen: &mut R,
         num_vectors: u32,
         max_sparse_dimension: usize,
-    ) -> InvertedIndexRam {
+    ) -> InvertedIndexRam<DimWeight> {
         let mut inverted_index_ram = InvertedIndexRam::empty();
 
         for i in 1..=num_vectors {

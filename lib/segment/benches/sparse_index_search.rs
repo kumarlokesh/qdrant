@@ -110,8 +110,8 @@ fn sparse_vector_index_search_benchmark_impl(
     let mmap_index_dir = Builder::new().prefix("mmap_index_dir").tempdir().unwrap();
     let sparse_index_config =
         SparseIndexConfig::new(Some(FULL_SCAN_THRESHOLD), SparseIndexType::Mmap);
-    let mut sparse_vector_index_mmap: SparseVectorIndex<InvertedIndexMmap> =
-        SparseVectorIndex::open(
+    let mut sparse_vector_index_mmap =
+        SparseVectorIndex::<InvertedIndexMmap<VectorElementType>>::open(
             sparse_index_config,
             sparse_vector_index.id_tracker().clone(),
             sparse_vector_index.vector_storage().clone(),

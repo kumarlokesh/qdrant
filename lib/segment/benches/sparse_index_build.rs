@@ -12,6 +12,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use segment::common::rocksdb_wrapper::{open_db, DB_VECTOR_CF};
+use segment::data_types::vectors::VectorElementType;
 use segment::fixtures::payload_context_fixture::FixtureIdTracker;
 use segment::index::hnsw_index::num_rayon_threads;
 use segment::index::sparse_index::sparse_index_config::{SparseIndexConfig, SparseIndexType};
@@ -72,7 +73,7 @@ fn sparse_vector_index_build_benchmark(c: &mut Criterion) {
     let permit_cpu_count = num_rayon_threads(0);
     let permit = Arc::new(CpuPermit::dummy(permit_cpu_count as u32));
 
-    let mut sparse_vector_index: SparseVectorIndex<InvertedIndexRam> = SparseVectorIndex::open(
+    let mut sparse_vector_index = SparseVectorIndex::<InvertedIndexRam<VectorElementType>>::open(
         index_config,
         id_tracker.clone(),
         vector_storage.clone(),
@@ -93,7 +94,7 @@ fn sparse_vector_index_build_benchmark(c: &mut Criterion) {
     });
 
     // build once to reuse in mmap conversion benchmark
-    let mut sparse_vector_index: SparseVectorIndex<InvertedIndexRam> = SparseVectorIndex::open(
+    let mut sparse_vector_index = SparseVectorIndex::<InvertedIndexRam<VectorElementType>>::open(
         index_config,
         id_tracker,
         vector_storage.clone(),
