@@ -164,23 +164,23 @@ pub enum Fusion {
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum VectorInput {
-    Id(segment::types::PointIdType),
     DenseVector(DenseVector),
     SparseVector(SparseVector),
     MultiDenseVector(MultiDenseVector),
+    Id(segment::types::PointIdType),
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct QueryRequestInternal {
-    /// Sub-requests to perform first. If present, the query will be performed on the results of the prefetches.
-    #[serde(with = "MaybeOneOrMany")]
+    /// Sub-requests to perform first. If present, the query will be performed on the results of the prefetch(es).
+    #[serde(default, with = "MaybeOneOrMany")]
     #[schemars(with = "MaybeOneOrMany<Prefetch>")]
     pub prefetch: Option<Vec<Prefetch>>,
 
     /// Query to perform. If missing, returns points ordered by their IDs.
     pub query: Option<QueryInterface>,
 
-    /// Define which vector to use for querying. If missing, the default vector is used.
+    /// Define which vector name to use for querying. If missing, the default vector is used.
     pub using: Option<String>,
 
     /// Filter conditions - return only those points that satisfy the specified conditions.
@@ -192,7 +192,7 @@ pub struct QueryRequestInternal {
     /// Return points with scores better than this threshold.
     pub score_threshold: Option<ScoreType>,
 
-    /// Max number of points. Default is 10.
+    /// Max number of points to return. Default is 10.
     pub limit: Option<usize>,
 
     /// Offset of the result. Skip this many points. Default is 0
@@ -244,14 +244,14 @@ pub enum Query {
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Prefetch {
     /// Sub-requests to perform first. If present, the query will be performed on the results of the prefetches.
-    #[serde(with = "MaybeOneOrMany")]
+    #[serde(default, with = "MaybeOneOrMany")]
     #[schemars(with = "MaybeOneOrMany<Prefetch>")]
     pub prefetch: Option<Vec<Prefetch>>,
 
     /// Query to perform. If missing, returns points ordered by their IDs.
     pub query: Option<QueryInterface>,
 
-    /// Define which vector to use for querying. If missing, the default vector is used.
+    /// Define which vector name to use for querying. If missing, the default vector is used.
     pub using: Option<String>,
 
     /// Filter conditions - return only those points that satisfy the specified conditions.
@@ -263,7 +263,7 @@ pub struct Prefetch {
     /// Return points with scores better than this threshold.
     pub score_threshold: Option<ScoreType>,
 
-    /// Max number of points. Default is 10.
+    /// Max number of points to return. Default is 10.
     pub limit: Option<usize>,
 }
 
