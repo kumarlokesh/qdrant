@@ -14,7 +14,7 @@ use crate::common::rocksdb_buffered_delete_wrapper::DatabaseColumnScheduledDelet
 use crate::common::rocksdb_buffered_update_wrapper::DatabaseColumnScheduledUpdateWrapper;
 use crate::common::rocksdb_wrapper::{DatabaseColumnWrapper, DB_MAPPING_CF, DB_VERSIONS_CF};
 use crate::common::Flusher;
-use crate::id_tracker::IdTracker;
+use crate::id_tracker::{IdTracker, IdTrackerEnum};
 use crate::types::{ExtendedPointId, PointIdType, SeqNumberType};
 
 /// Point Id type used for storing ids internally
@@ -404,6 +404,10 @@ impl IdTracker for SimpleIdTracker {
             }
         }
         Ok(())
+    }
+
+    fn make_immutable(self) -> OperationResult<IdTrackerEnum> {
+        todo!()
     }
 }
 
